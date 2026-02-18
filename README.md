@@ -1,36 +1,84 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Synn Webapp
 
-## Getting Started
-
-First, run the development server:
+## Local run
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+App runs at `http://localhost:3000`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Firebase setup
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Copy env template:
 
-## Learn More
+```bash
+cp .env.example .env.local
+```
 
-To learn more about Next.js, take a look at the following resources:
+2. Fill all Firebase values in `.env.local`.
+3. Start dev server and verify connection at:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```text
+http://localhost:3000/api/firebase/health
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Detailed setup guide: `docs/firebase-setup.md`
 
-## Deploy on Vercel
+## Workspace invite emails
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Invite links work without email provider setup, but delivery is marked as `skipped` until provider vars are configured.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Optional env vars:
+- `RESEND_API_KEY`
+- `INVITES_EMAIL_FROM`
+- `INVITES_EMAIL_REPLY_TO`
+
+Invites sent to emails without an account are supported:
+- Recipient opens invite link
+- Recipient signs up with the same invited email
+- Recipient is returned to invite accept flow and can join workspace
+
+## Firestore security rules
+
+- Rules file: `firestore.rules`
+- Emulator config: `firebase.json`
+- Rules test suite: `tests/firebase/firestore.rules.test.mjs`
+
+Run rule validation:
+
+```bash
+npm run test:firestore-rules
+```
+
+Details: `docs/firestore-rules.md`
+
+## End-to-end tests (Playwright)
+
+E2E runs against local Firebase Auth + Firestore emulators and covers:
+- auth + onboarding
+- workspace switching
+- invite accept flow
+- meeting -> decision/action sync
+- decision/action archive + restore
+- workspace access-denied / not-found routes
+
+Install browser once:
+
+```bash
+npm run test:e2e:install
+```
+
+Run suite:
+
+```bash
+npm run test:e2e
+```
+
+Useful variants:
+
+```bash
+npm run test:e2e:headed
+npm run test:e2e:ui
+```

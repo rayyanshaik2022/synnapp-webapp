@@ -6,20 +6,32 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:permissions": "node --experimental-strip-types --test tests/auth/permissions.test.ts",
+    "test:firestore-rules": "firebase emulators:exec --only firestore --project synn-firestore-rules \"node --test tests/firebase/firestore.rules.test.mjs\"",
+    "firebase:emulators": "firebase emulators:start --only auth,firestore",
+    "test:e2e": "firebase emulators:exec --only auth,firestore --project synn-e2e \"playwright test\"",
+    "test:e2e:headed": "firebase emulators:exec --only auth,firestore --project synn-e2e \"playwright test --headed\"",
+    "test:e2e:ui": "firebase emulators:exec --only auth,firestore --project synn-e2e \"playwright test --ui\"",
+    "test:e2e:install": "playwright install chromium"
   },
   "dependencies": {
+    "firebase": "^12.9.0",
+    "firebase-admin": "^13.6.1",
     "next": "16.1.6",
     "react": "19.2.3",
     "react-dom": "19.2.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.52.0",
+    "@firebase/rules-unit-testing": "^5.0.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
+    "firebase-tools": "^13.0.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

@@ -1,0 +1,132 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isSignedInUser(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function memberDocPath(workspaceId) {
+      return /databases/$(database)/documents/workspaces/$(workspaceId)/members/$(request.auth.uid);
+    }
+
+    function isWorkspaceMember(workspaceId) {
+      return signedIn() && exists(memberDocPath(workspaceId));
+    }
+
+    function memberRole(workspaceId) {
+      return isWorkspaceMember(workspaceId) ? get(memberDocPath(workspaceId)).data.role : "";
+    }
+
+    function isManager(workspaceId) {
+      let role = memberRole(workspaceId);
+      return role == "owner" || role == "admin";
+    }
+
+    function canEditWorkspaceRecords(workspaceId) {
+      return isWorkspaceMember(workspaceId) && memberRole(workspaceId) != "viewer";
+    }
+
+    function validMemberRole(role) {
+      return role in ["owner", "admin", "member", "viewer"];
+    }
+
+    function archiveFieldsTouched() {
+      return request.resource.data.diff(resource.data).changedKeys().hasAny([
+        "archived",
+        "archivedAt",
+        "archivedBy",
+      ]);
+    }
+
+    match /users/{uid} {
+      allow read: if isSignedInUser(uid);
+      allow create, update: if isSignedInUser(uid) && request.resource.data.uid == uid;
+      allow delete: if false;
+    }
+
+    match /workspaceSlugs/{workspaceSlug} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
+    match /workspaces/{workspaceId} {
+      allow read: if isWorkspaceMember(workspaceId);
+      allow create: if signedIn() && request.resource.data.createdBy == request.auth.uid;
+      allow update, delete: if isManager(workspaceId);
+
+      match /members/{uid} {
+        allow read: if isWorkspaceMember(workspaceId);
+        allow create: if isManager(workspaceId)
+          && request.resource.data.uid == uid
+          && validMemberRole(request.resource.data.role);
+        allow update: if isManager(workspaceId)
+          && request.resource.data.uid == resource.data.uid
+          && validMemberRole(request.resource.data.role);
+        allow delete: if isManager(workspaceId) && uid != request.auth.uid;
+      }
+
+      match /meetings/{meetingId} {
+        allow read: if isWorkspaceMember(workspaceId);
+        allow create: if canEditWorkspaceRecords(workspaceId);
+        allow update: if canEditWorkspaceRecords(workspaceId);
+        allow delete: if isManager(workspaceId);
+
+        match /revisions/{revisionId} {
+          allow read: if isWorkspaceMember(workspaceId);
+          allow create: if canEditWorkspaceRecords(workspaceId);
+          allow update, delete: if false;
+        }
+      }
+
+      match /decisions/{decisionId} {
+        allow read: if isWorkspaceMember(workspaceId);
+        allow create: if canEditWorkspaceRecords(workspaceId);
+        allow update: if canEditWorkspaceRecords(workspaceId)
+          && (!archiveFieldsTouched() || isManager(workspaceId));
+        allow delete: if isManager(workspaceId);
+
+        match /history/{eventId} {
+          allow read: if isWorkspaceMember(workspaceId);
+          allow create: if canEditWorkspaceRecords(workspaceId);
+          allow update, delete: if false;
+        }
+      }
+
+      match /actions/{actionId} {
+        allow read: if isWorkspaceMember(workspaceId);
+        allow create: if canEditWorkspaceRecords(workspaceId);
+        allow update: if canEditWorkspaceRecords(workspaceId)
+          && (!archiveFieldsTouched() || isManager(workspaceId));
+        allow delete: if isManager(workspaceId);
+
+        match /history/{eventId} {
+          allow read: if isWorkspaceMember(workspaceId);
+          allow create: if canEditWorkspaceRecords(workspaceId);
+          allow update, delete: if false;
+        }
+      }
+
+      match /invites/{inviteId} {
+        allow read, create, update, delete: if isManager(workspaceId);
+      }
+
+      match /digests/{digestId} {
+        allow read: if isWorkspaceMember(workspaceId);
+        allow create, update, delete: if isManager(workspaceId);
+      }
+
+      match /{document=**} {
+        allow read, write: if false;
+      }
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
