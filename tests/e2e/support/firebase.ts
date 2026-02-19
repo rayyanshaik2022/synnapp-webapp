@@ -28,13 +28,23 @@ type InviteSeedInput = {
   expiresInHours?: number;
 };
 
+const DEFAULT_WORKSPACE_PLAN_TIER = "basic";
+
 function resolveProjectId() {
   return (
     process.env.FIREBASE_PROJECT_ID ||
     process.env.GCLOUD_PROJECT ||
     process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ||
-    "synn-e2e"
+    "synnapp-e2e"
   );
+}
+
+function resolveWorkspacePlanTier(value: unknown) {
+  if (typeof value === "string" && value.trim()) {
+    return value.trim();
+  }
+
+  return DEFAULT_WORKSPACE_PLAN_TIER;
 }
 
 function getAuthEmulatorHost() {
@@ -99,10 +109,14 @@ async function ensureWorkspaceSeed({
     if (!workspaceId) {
       throw new Error(`workspaceSlugs/${slug} is missing workspaceId.`);
     }
-    await adminDb.collection("workspaces").doc(workspaceId).set(
+    const workspaceRef = adminDb.collection("workspaces").doc(workspaceId);
+    const workspaceSnapshot = await workspaceRef.get();
+    const planTier = resolveWorkspacePlanTier(workspaceSnapshot.get("planTier"));
+    await workspaceRef.set(
       {
         slug,
         name: workspaceName,
+        planTier,
         updatedAt: now,
       },
       { merge: true },
@@ -116,6 +130,7 @@ async function ensureWorkspaceSeed({
       slug,
       name: workspaceName,
       createdBy: createdByUid,
+      planTier: DEFAULT_WORKSPACE_PLAN_TIER,
       createdAt: now,
       updatedAt: now,
     }),

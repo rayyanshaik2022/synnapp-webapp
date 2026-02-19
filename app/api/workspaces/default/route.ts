@@ -3,6 +3,7 @@ import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { SESSION_COOKIE_NAME } from "@/lib/auth/session";
 import { adminAuth, adminDb } from "@/lib/firebase/admin";
 import { resolveWorkspaceBySlug } from "@/lib/auth/workspace-data";
+import { withWriteGuardrails } from "@/lib/api/write-guardrails";
 
 type UpdateDefaultWorkspaceBody = {
   workspaceSlug?: string;
@@ -22,7 +23,7 @@ async function authenticateUid(request: NextRequest) {
   return decodedSession.uid;
 }
 
-export async function PATCH(request: NextRequest) {
+async function patchHandler(request: NextRequest) {
   try {
     const uid = await authenticateUid(request);
     const body = (await request.json()) as UpdateDefaultWorkspaceBody;
@@ -68,3 +69,10 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: message }, { status });
   }
 }
+
+export const PATCH = withWriteGuardrails(
+  {
+    routeId: "workspaces.default.update",
+  },
+  patchHandler,
+);

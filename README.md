@@ -1,4 +1,4 @@
-# Synn Webapp
+# Synnapp Webapp
 
 ## Local run
 

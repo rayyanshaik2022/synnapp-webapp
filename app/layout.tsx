@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Synn",
+  title: "Synnapp",
   description: "Decision and action system for teams",
 };
 

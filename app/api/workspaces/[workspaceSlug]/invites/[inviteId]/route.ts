@@ -9,6 +9,7 @@ import {
   parseWorkspaceMemberRole,
 } from "@/lib/auth/permissions";
 import { sendWorkspaceInviteEmail } from "@/lib/email/invite-email";
+import { withWriteGuardrails } from "@/lib/api/write-guardrails";
 
 type RouteContext = {
   params: Promise<{
@@ -132,7 +133,7 @@ async function resolveInviteManagerContext(request: NextRequest, workspaceSlug: 
   };
 }
 
-export async function PATCH(request: NextRequest, context: RouteContext) {
+async function patchHandler(request: NextRequest, context: RouteContext) {
   try {
     const { workspaceSlug, inviteId } = await context.params;
     const managerContext = await resolveInviteManagerContext(request, workspaceSlug);
@@ -189,6 +190,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           {
             status: "revoked",
             targetUserExists,
+            rejectedAt: null,
+            rejectedByUid: "",
+            rejectedByEmail: "",
             revokedAt: now,
             revokedByUid: managerContext.uid,
             updatedAt: now,
@@ -203,6 +207,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
             {
               status: "revoked",
               targetUserExists,
+              rejectedAt: null,
+              rejectedByUid: "",
+              rejectedByEmail: "",
               revokedAt: now,
               revokedByUid: managerContext.uid,
               updatedAt: now,
@@ -249,6 +256,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           status: "pending",
           expiresAt: nextExpiresAt,
           updatedAt: now,
+          rejectedAt: null,
+          rejectedByUid: "",
+          rejectedByEmail: "",
           revokedAt: null,
           revokedByUid: "",
           resendCount: resendCount + 1,
@@ -277,6 +287,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           acceptedAt: null,
           acceptedByUid: "",
           acceptedByEmail: "",
+          rejectedAt: null,
+          rejectedByUid: "",
+          rejectedByEmail: "",
           revokedAt: null,
           revokedByUid: "",
           emailDeliveryStatus: "queued",
@@ -366,3 +379,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: message }, { status });
   }
 }
+
+export const PATCH = withWriteGuardrails(
+  {
+    routeId: "workspace.invites.update",
+  },
+  patchHandler,
+);

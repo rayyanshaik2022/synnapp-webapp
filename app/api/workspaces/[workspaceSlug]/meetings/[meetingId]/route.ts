@@ -13,6 +13,7 @@ import {
   writeCanonicalHistoryEvent,
 } from "@/lib/workspace/activity-history";
 import { emitMentionNotifications } from "@/lib/notifications/mentions";
+import { withWriteGuardrails } from "@/lib/api/write-guardrails";
 
 type RouteContext = {
   params: Promise<{
@@ -1065,7 +1066,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   }
 }
 
-export async function PATCH(request: NextRequest, context: RouteContext) {
+async function patchHandler(request: NextRequest, context: RouteContext) {
   try {
     const { workspaceSlug, meetingId } = await context.params;
     const resolvedContext = await resolveAuthorizedMeetingContext(
@@ -1240,3 +1241,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: message }, { status });
   }
 }
+
+export const PATCH = withWriteGuardrails(
+  {
+    routeId: "workspace.meetings.update",
+  },
+  patchHandler,
+);

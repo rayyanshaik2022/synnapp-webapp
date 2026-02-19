@@ -19,7 +19,7 @@ export type ClientEntityHistoryEventDetail = {
   entry: ClientEntityHistoryItem;
 };
 
-export const ENTITY_HISTORY_EVENT_NAME = "synn:entity-history-event";
+export const ENTITY_HISTORY_EVENT_NAME = "synnapp:entity-history-event";
 
 export function emitEntityHistoryEvent(detail: ClientEntityHistoryEventDetail) {
   if (typeof window === "undefined") return;

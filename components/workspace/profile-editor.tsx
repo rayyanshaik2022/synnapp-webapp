@@ -5,72 +5,38 @@ import { FormEvent, useMemo, useState } from "react";
 type ProfileValues = {
   fullName: string;
   email: string;
-  jobTitle: string;
   phone: string;
   timezone: string;
   bio: string;
 };
 
-type NotificationValues = {
-  meetingDigests: boolean;
-  actionReminders: boolean;
-  weeklySummary: boolean;
-  productAnnouncements: boolean;
-};
-
 type ProfileEditorProps = {
   initialProfile: ProfileValues;
-  initialNotifications: NotificationValues;
 };
 
 type ProfileApiResponse = {
   error?: string;
   profile?: ProfileValues;
-  notifications?: NotificationValues;
 };
 
 function hasProfileChanges(a: ProfileValues, b: ProfileValues) {
   return (
     a.fullName !== b.fullName ||
     a.email !== b.email ||
-    a.jobTitle !== b.jobTitle ||
     a.phone !== b.phone ||
     a.timezone !== b.timezone ||
     a.bio !== b.bio
   );
 }
 
-function hasNotificationChanges(a: NotificationValues, b: NotificationValues) {
-  return (
-    a.meetingDigests !== b.meetingDigests ||
-    a.actionReminders !== b.actionReminders ||
-    a.weeklySummary !== b.weeklySummary ||
-    a.productAnnouncements !== b.productAnnouncements
-  );
-}
-
-export function ProfileEditor({
-  initialProfile,
-  initialNotifications,
-}: ProfileEditorProps) {
+export function ProfileEditor({ initialProfile }: ProfileEditorProps) {
   const [savedProfile, setSavedProfile] = useState<ProfileValues>(initialProfile);
-  const [savedNotifications, setSavedNotifications] = useState<NotificationValues>(
-    initialNotifications,
-  );
   const [profile, setProfile] = useState<ProfileValues>(initialProfile);
-  const [notifications, setNotifications] = useState<NotificationValues>(
-    initialNotifications,
-  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const isDirty = useMemo(
-    () =>
-      hasProfileChanges(profile, savedProfile) ||
-      hasNotificationChanges(notifications, savedNotifications),
-    [notifications, profile, savedNotifications, savedProfile],
-  );
+  const isDirty = useMemo(() => hasProfileChanges(profile, savedProfile), [profile, savedProfile]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -84,11 +50,9 @@ export function ProfileEditor({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           fullName: profile.fullName,
-          jobTitle: profile.jobTitle,
           phone: profile.phone,
           timezone: profile.timezone,
           bio: profile.bio,
-          notifications,
         }),
       });
 
@@ -101,12 +65,8 @@ export function ProfileEditor({
       }
 
       const nextProfile = result?.profile ?? profile;
-      const nextNotifications = result?.notifications ?? notifications;
-
       setProfile(nextProfile);
       setSavedProfile(nextProfile);
-      setNotifications(nextNotifications);
-      setSavedNotifications(nextNotifications);
       setNotice("Profile saved.");
     } catch (submitError) {
       const message =
@@ -119,7 +79,6 @@ export function ProfileEditor({
 
   function handleReset() {
     setProfile(savedProfile);
-    setNotifications(savedNotifications);
     setError(null);
     setNotice(null);
   }
@@ -140,12 +99,6 @@ export function ProfileEditor({
           onChange={() => undefined}
           placeholder="you@company.com"
           readOnly
-        />
-        <ProfileField
-          label="Job Title"
-          value={profile.jobTitle}
-          onChange={(value) => setProfile((prev) => ({ ...prev, jobTitle: value }))}
-          placeholder="Role title"
         />
         <ProfileField
           label="Phone"
@@ -190,54 +143,6 @@ export function ProfileEditor({
           className="w-full rounded-sm border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900"
         />
       </label>
-
-      <div>
-        <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-slate-700">
-          Notifications
-        </h3>
-        <div className="mt-3 space-y-2">
-          <PreferenceToggle
-            label="Meeting digest emails"
-            enabled={notifications.meetingDigests}
-            onToggle={() =>
-              setNotifications((prev) => ({
-                ...prev,
-                meetingDigests: !prev.meetingDigests,
-              }))
-            }
-          />
-          <PreferenceToggle
-            label="Action due reminders"
-            enabled={notifications.actionReminders}
-            onToggle={() =>
-              setNotifications((prev) => ({
-                ...prev,
-                actionReminders: !prev.actionReminders,
-              }))
-            }
-          />
-          <PreferenceToggle
-            label="Weekly workspace summary"
-            enabled={notifications.weeklySummary}
-            onToggle={() =>
-              setNotifications((prev) => ({
-                ...prev,
-                weeklySummary: !prev.weeklySummary,
-              }))
-            }
-          />
-          <PreferenceToggle
-            label="Product announcements"
-            enabled={notifications.productAnnouncements}
-            onToggle={() =>
-              setNotifications((prev) => ({
-                ...prev,
-                productAnnouncements: !prev.productAnnouncements,
-              }))
-            }
-          />
-        </div>
-      </div>
 
       {notice ? (
         <p className="rounded-sm border border-teal-200 bg-teal-50 px-3 py-2 text-sm text-teal-700">
@@ -303,34 +208,5 @@ function ProfileField({
         }`}
       />
     </label>
-  );
-}
-
-function PreferenceToggle({
-  label,
-  enabled,
-  onToggle,
-}: {
-  label: string;
-  enabled: boolean;
-  onToggle: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      className="flex w-full items-center justify-between gap-3 rounded-sm border border-slate-200 bg-white px-3 py-2.5 text-left"
-    >
-      <span className="text-sm text-slate-700">{label}</span>
-      <span
-        className={`rounded-sm border px-2 py-1 text-[11px] font-semibold tracking-[0.08em] ${
-          enabled
-            ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-            : "border-slate-200 bg-slate-100 text-slate-700"
-        }`}
-      >
-        {enabled ? "Enabled" : "Disabled"}
-      </span>
-    </button>
   );
 }

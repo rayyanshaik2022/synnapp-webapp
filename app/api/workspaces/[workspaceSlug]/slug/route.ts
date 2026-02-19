@@ -5,6 +5,7 @@ import { SESSION_COOKIE_NAME } from "@/lib/auth/session";
 import { adminAuth, adminDb } from "@/lib/firebase/admin";
 import { resolveWorkspaceBySlug } from "@/lib/auth/workspace-data";
 import { canUpdateWorkspaceSlug, parseWorkspaceMemberRole } from "@/lib/auth/permissions";
+import { withWriteGuardrails } from "@/lib/api/write-guardrails";
 
 type UpdateWorkspaceSlugBody = {
   slug?: string;
@@ -44,7 +45,7 @@ function parseSlugList(value: unknown) {
   return Array.from(unique);
 }
 
-export async function PATCH(request: NextRequest, context: RouteContext) {
+async function patchHandler(request: NextRequest, context: RouteContext) {
   const sessionCookie = request.cookies.get(SESSION_COOKIE_NAME)?.value;
 
   if (!sessionCookie) {
@@ -230,3 +231,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
+export const PATCH = withWriteGuardrails(
+  {
+    routeId: "workspace.slug.update",
+  },
+  patchHandler,
+);

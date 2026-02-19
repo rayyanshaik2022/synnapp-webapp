@@ -7,7 +7,7 @@ import {
   WORKSPACE_MEMBER_ROLES,
 } from "@/lib/auth/permissions";
 
-type InviteStatus = "pending" | "accepted" | "revoked" | "expired";
+type InviteStatus = "pending" | "accepted" | "rejected" | "revoked" | "expired";
 type InviteEmailDeliveryStatus = "sent" | "skipped" | "failed";
 
 type InviteEmailDelivery = {
@@ -33,6 +33,9 @@ type InviteRecord = {
   acceptedAt: string;
   acceptedByUid: string;
   acceptedByEmail: string;
+  rejectedAt: string;
+  rejectedByUid: string;
+  rejectedByEmail: string;
   revokedAt: string;
   revokedByUid: string;
   resendCount: number;
@@ -57,7 +60,19 @@ type WorkspaceInvitesManagerProps = {
   canManageInvites: boolean;
 };
 
+type InviteFilter = "all" | InviteStatus;
+
 const ROLE_OPTIONS: WorkspaceMemberRole[] = [...WORKSPACE_MEMBER_ROLES];
+const INVITE_FILTERS: Array<{ value: InviteFilter; label: string }> = [
+  { value: "all", label: "All" },
+  { value: "pending", label: "Pending" },
+  { value: "accepted", label: "Accepted" },
+  { value: "rejected", label: "Rejected" },
+  { value: "revoked", label: "Revoked" },
+  { value: "expired", label: "Expired" },
+];
+const INVITE_PAGE_SIZE = 12;
+const INVITE_POLLING_INTERVAL_MS = 20_000;
 
 function normalizeRole(value: string): WorkspaceMemberRole {
   return parseWorkspaceMemberRole(value);
@@ -89,6 +104,7 @@ function formatDateLabel(value: string) {
 function statusStyle(status: InviteStatus) {
   if (status === "pending") return "border-cyan-200 bg-cyan-50 text-cyan-800";
   if (status === "accepted") return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  if (status === "rejected") return "border-rose-200 bg-rose-50 text-rose-700";
   if (status === "revoked") return "border-slate-200 bg-slate-100 text-slate-700";
   return "border-amber-200 bg-amber-50 text-amber-800";
 }
@@ -101,6 +117,32 @@ function inviteDeliveryLabel(invite: InviteRecord) {
   return "Email queued";
 }
 
+function inviteResolutionLabel(invite: InviteRecord) {
+  if (invite.status === "accepted") {
+    const actor = invite.acceptedByEmail || invite.acceptedByUid || "recipient";
+    const at = invite.acceptedAt ? ` on ${formatDateLabel(invite.acceptedAt)}` : "";
+    return `Accepted by ${actor}${at}.`;
+  }
+
+  if (invite.status === "rejected") {
+    const actor = invite.rejectedByEmail || invite.rejectedByUid || "recipient";
+    const at = invite.rejectedAt ? ` on ${formatDateLabel(invite.rejectedAt)}` : "";
+    return `Rejected by ${actor}${at}.`;
+  }
+
+  if (invite.status === "revoked") {
+    const actor = invite.revokedByUid || "workspace manager";
+    const at = invite.revokedAt ? ` on ${formatDateLabel(invite.revokedAt)}` : "";
+    return `Revoked by ${actor}${at}.`;
+  }
+
+  if (invite.status === "expired") {
+    return "Invite expired without a response.";
+  }
+
+  return "";
+}
+
 export function WorkspaceInvitesManager({
   workspaceSlug,
   actorRole,
@@ -109,9 +151,13 @@ export function WorkspaceInvitesManager({
 }: WorkspaceInvitesManagerProps) {
   const [invites, setInvites] = useState<InviteRecord[]>([]);
   const [isLoading, setIsLoading] = useState(canManageInvites);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<WorkspaceMemberRole>("member");
+  const [statusFilter, setStatusFilter] = useState<InviteFilter>("all");
+  const [emailFilter, setEmailFilter] = useState("");
+  const [visibleCount, setVisibleCount] = useState(INVITE_PAGE_SIZE);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -120,14 +166,18 @@ export function WorkspaceInvitesManager({
     return ROLE_OPTIONS.filter((role) => (role === "owner" ? canAssignOwner : true));
   }, [canAssignOwner]);
 
-  const loadInvites = useCallback(async () => {
+  const loadInvites = useCallback(async (options?: { silent?: boolean }) => {
     if (!canManageInvites) {
       setIsLoading(false);
       return;
     }
 
-    setIsLoading(true);
-    setError(null);
+    if (options?.silent) {
+      setIsRefreshing(true);
+    } else {
+      setIsLoading(true);
+      setError(null);
+    }
 
     try {
       const response = await fetch(
@@ -147,13 +197,68 @@ export function WorkspaceInvitesManager({
         loadError instanceof Error ? loadError.message : "Failed to load invites.";
       setError(message);
     } finally {
-      setIsLoading(false);
+      if (options?.silent) {
+        setIsRefreshing(false);
+      } else {
+        setIsLoading(false);
+      }
     }
   }, [canManageInvites, workspaceSlug]);
 
   useEffect(() => {
     void loadInvites();
   }, [loadInvites]);
+
+  useEffect(() => {
+    if (!canManageInvites) return;
+
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState !== "visible") return;
+      void loadInvites({ silent: true });
+    }, INVITE_POLLING_INTERVAL_MS);
+
+    return () => window.clearInterval(intervalId);
+  }, [canManageInvites, loadInvites]);
+
+  useEffect(() => {
+    setVisibleCount(INVITE_PAGE_SIZE);
+  }, [statusFilter, emailFilter]);
+
+  const normalizedEmailFilter = emailFilter.trim().toLowerCase();
+  const filteredInvites = useMemo(() => {
+    return invites.filter((invite) => {
+      if (statusFilter !== "all" && invite.status !== statusFilter) {
+        return false;
+      }
+
+      if (normalizedEmailFilter && !invite.email.includes(normalizedEmailFilter)) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [invites, normalizedEmailFilter, statusFilter]);
+
+  const visibleInvites = useMemo(
+    () => filteredInvites.slice(0, visibleCount),
+    [filteredInvites, visibleCount],
+  );
+  const hasMoreInvites = filteredInvites.length > visibleCount;
+  const inviteCounts = useMemo(() => {
+    const counts: Record<InviteStatus, number> = {
+      pending: 0,
+      accepted: 0,
+      rejected: 0,
+      revoked: 0,
+      expired: 0,
+    };
+
+    for (const invite of invites) {
+      counts[invite.status] += 1;
+    }
+
+    return counts;
+  }, [invites]);
 
   async function handleCreateInvite() {
     if (!canManageInvites) return;
@@ -364,80 +469,150 @@ export function WorkspaceInvitesManager({
         <div className="rounded-lg border border-slate-200 bg-white px-4 py-6 text-sm text-slate-600">
           Loading invites...
         </div>
-      ) : invites.length === 0 ? (
-        <div className="rounded-lg border border-slate-200 bg-white px-4 py-6 text-sm text-slate-600">
-          No invites yet.
-        </div>
       ) : (
-        <div className="space-y-3">
-          {invites.map((invite) => {
-            const canRevoke = invite.status === "pending";
-            const canResend = invite.status !== "accepted";
+        <div className="rounded-lg border border-slate-200 bg-white">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-4 py-3">
+            <p className="text-xs text-slate-600">
+              Showing {visibleInvites.length} of {filteredInvites.length} filtered invites ({invites.length} total)
+              {isRefreshing ? " • refreshing..." : ""}
+            </p>
+            <button
+              type="button"
+              onClick={() => void loadInvites({ silent: true })}
+              disabled={isRefreshing || isSubmitting}
+              className="rounded-sm border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-slate-500 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isRefreshing ? "Refreshing..." : "Refresh"}
+            </button>
+          </div>
 
-            return (
-              <article key={invite.id} className="rounded-lg border border-slate-200 bg-white px-4 py-3">
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div>
-                    <p className="text-sm font-semibold text-slate-900">{invite.email}</p>
-                    <p className="mt-1 text-xs text-slate-600">
-                      Role {titleCase(invite.role)} • Expires {formatDateLabel(invite.expiresAt)}
-                    </p>
-                    <p className="mt-1 text-xs text-slate-500">
-                      {invite.targetUserExists
-                        ? "Account exists"
-                        : "No account yet: recipient must sign up first"}
-                      {" • "}
-                      {inviteDeliveryLabel(invite)}
-                      {invite.lastEmailDeliveryAt
-                        ? ` at ${formatDateLabel(invite.lastEmailDeliveryAt)}`
-                        : ""}
-                    </p>
-                    {invite.emailDeliveryError ? (
-                      <p className="mt-1 text-xs text-rose-600">
-                        Delivery error: {invite.emailDeliveryError}
-                      </p>
-                    ) : null}
-                  </div>
-                  <span
-                    className={`rounded-sm border px-2 py-1 text-[11px] font-semibold tracking-[0.08em] ${statusStyle(invite.status)}`}
+          <div className="border-b border-slate-200 px-4 py-3">
+            <div className="flex flex-wrap gap-2">
+              {INVITE_FILTERS.map((filter) => {
+                const count = filter.value === "all" ? invites.length : inviteCounts[filter.value];
+                const isActive = statusFilter === filter.value;
+                return (
+                  <button
+                    key={filter.value}
+                    type="button"
+                    onClick={() => setStatusFilter(filter.value)}
+                    className={`rounded-sm border px-2.5 py-1 text-xs font-semibold tracking-[0.06em] ${
+                      isActive
+                        ? "border-cyan-300 bg-cyan-50 text-cyan-800"
+                        : "border-slate-300 bg-white text-slate-700 hover:border-slate-500"
+                    }`}
                   >
-                    {invite.status.toUpperCase()}
-                  </span>
-                </div>
+                    {filter.label} ({count})
+                  </button>
+                );
+              })}
+            </div>
+            <input
+              type="search"
+              value={emailFilter}
+              onChange={(event) => setEmailFilter(event.target.value)}
+              placeholder="Filter by email..."
+              className="mt-3 w-full rounded-sm border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
+            />
+          </div>
 
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <input
-                    readOnly
-                    value={invite.inviteUrl}
-                    className="min-w-[220px] flex-1 rounded-sm border border-slate-300 bg-slate-50 px-3 py-1.5 text-xs text-slate-700"
-                  />
+          {filteredInvites.length === 0 ? (
+            <div className="px-4 py-6 text-sm text-slate-600">
+              {invites.length === 0 ? "No invites yet." : "No invites match the current filters."}
+            </div>
+          ) : (
+            <>
+              <div className="max-h-[560px] space-y-3 overflow-y-auto p-3">
+                {visibleInvites.map((invite) => {
+                  const canRevoke = invite.status === "pending";
+                  const canResend = invite.status !== "accepted";
+                  const resolutionLabel = inviteResolutionLabel(invite);
+
+                  return (
+                    <article
+                      key={invite.id}
+                      className="rounded-lg border border-slate-200 bg-white px-4 py-3"
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900">{invite.email}</p>
+                          <p className="mt-1 text-xs text-slate-600">
+                            Role {titleCase(invite.role)} • Expires {formatDateLabel(invite.expiresAt)}
+                          </p>
+                          <p className="mt-1 text-xs text-slate-500">
+                            {invite.targetUserExists
+                              ? "Account exists"
+                              : "No account yet: recipient must sign up first"}
+                            {" • "}
+                            {inviteDeliveryLabel(invite)}
+                            {invite.lastEmailDeliveryAt
+                              ? ` at ${formatDateLabel(invite.lastEmailDeliveryAt)}`
+                              : ""}
+                          </p>
+                          {resolutionLabel ? (
+                            <p className="mt-1 text-xs text-slate-500">{resolutionLabel}</p>
+                          ) : null}
+                          {invite.emailDeliveryError ? (
+                            <p className="mt-1 text-xs text-rose-600">
+                              Delivery error: {invite.emailDeliveryError}
+                            </p>
+                          ) : null}
+                        </div>
+                        <span
+                          className={`rounded-sm border px-2 py-1 text-[11px] font-semibold tracking-[0.08em] ${statusStyle(invite.status)}`}
+                        >
+                          {invite.status.toUpperCase()}
+                        </span>
+                      </div>
+
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <input
+                          readOnly
+                          value={invite.inviteUrl}
+                          className="min-w-[220px] flex-1 rounded-sm border border-slate-300 bg-slate-50 px-3 py-1.5 text-xs text-slate-700"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => void handleCopyInviteLink(invite.inviteUrl)}
+                          className="rounded-sm border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-slate-500 hover:text-slate-900"
+                        >
+                          Copy link
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void handlePatchInvite(invite.id, "resend")}
+                          disabled={!canResend || isSubmitting}
+                          className="rounded-sm border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-slate-500 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          Resend
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void handlePatchInvite(invite.id, "revoke")}
+                          disabled={!canRevoke || isSubmitting}
+                          className="rounded-sm border border-rose-300 bg-white px-3 py-1.5 text-xs font-semibold text-rose-700 transition hover:border-rose-500 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          Revoke
+                        </button>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+
+              {hasMoreInvites ? (
+                <div className="border-t border-slate-200 px-4 py-3">
                   <button
                     type="button"
-                    onClick={() => void handleCopyInviteLink(invite.inviteUrl)}
+                    onClick={() => setVisibleCount((current) => current + INVITE_PAGE_SIZE)}
                     className="rounded-sm border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-slate-500 hover:text-slate-900"
                   >
-                    Copy link
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void handlePatchInvite(invite.id, "resend")}
-                    disabled={!canResend || isSubmitting}
-                    className="rounded-sm border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-slate-500 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    Resend
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void handlePatchInvite(invite.id, "revoke")}
-                    disabled={!canRevoke || isSubmitting}
-                    className="rounded-sm border border-rose-300 bg-white px-3 py-1.5 text-xs font-semibold text-rose-700 transition hover:border-rose-500 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    Revoke
+                    Show more ({filteredInvites.length - visibleCount} remaining)
                   </button>
                 </div>
-              </article>
-            );
-          })}
+              ) : null}
+            </>
+          )}
         </div>
       )}
     </>

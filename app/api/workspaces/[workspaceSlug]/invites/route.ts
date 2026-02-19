@@ -11,6 +11,7 @@ import {
   type WorkspaceMemberRole,
 } from "@/lib/auth/permissions";
 import { sendWorkspaceInviteEmail } from "@/lib/email/invite-email";
+import { withWriteGuardrails } from "@/lib/api/write-guardrails";
 
 type RouteContext = {
   params: Promise<{
@@ -18,7 +19,7 @@ type RouteContext = {
   }>;
 };
 
-type InviteStatus = "pending" | "accepted" | "revoked" | "expired";
+type InviteStatus = "pending" | "accepted" | "rejected" | "revoked" | "expired";
 
 type CreateInviteBody = {
   email?: string;
@@ -40,6 +41,9 @@ type InviteRecord = {
   acceptedAt: Date | null;
   acceptedByUid: string;
   acceptedByEmail: string;
+  rejectedAt: Date | null;
+  rejectedByUid: string;
+  rejectedByEmail: string;
   revokedAt: Date | null;
   revokedByUid: string;
   resendCount: number;
@@ -119,7 +123,12 @@ function createInviteToken() {
 }
 
 function formatInviteStatus(status: string, expiresAt: Date | null): InviteStatus {
-  if (status === "accepted" || status === "revoked" || status === "expired") {
+  if (
+    status === "accepted" ||
+    status === "rejected" ||
+    status === "revoked" ||
+    status === "expired"
+  ) {
     return status;
   }
 
@@ -139,6 +148,7 @@ function mapInviteSnapshot(
   const createdAt = parseDate(data.createdAt);
   const updatedAt = parseDate(data.updatedAt);
   const acceptedAt = parseDate(data.acceptedAt);
+  const rejectedAt = parseDate(data.rejectedAt);
   const revokedAt = parseDate(data.revokedAt);
   const rawStatus = normalizeText(data.status).toLowerCase();
   const status = formatInviteStatus(rawStatus, expiresAt);
@@ -158,6 +168,9 @@ function mapInviteSnapshot(
     acceptedAt,
     acceptedByUid: normalizeText(data.acceptedByUid),
     acceptedByEmail: normalizeEmail(data.acceptedByEmail),
+    rejectedAt,
+    rejectedByUid: normalizeText(data.rejectedByUid),
+    rejectedByEmail: normalizeEmail(data.rejectedByEmail),
     revokedAt,
     revokedByUid: normalizeText(data.revokedByUid),
     resendCount:
@@ -263,6 +276,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
         acceptedAt: invite.acceptedAt?.toISOString() ?? "",
         acceptedByUid: invite.acceptedByUid,
         acceptedByEmail: invite.acceptedByEmail,
+        rejectedAt: invite.rejectedAt?.toISOString() ?? "",
+        rejectedByUid: invite.rejectedByUid,
+        rejectedByEmail: invite.rejectedByEmail,
         revokedAt: invite.revokedAt?.toISOString() ?? "",
         revokedByUid: invite.revokedByUid,
         resendCount: invite.resendCount,
@@ -290,7 +306,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   }
 }
 
-export async function POST(request: NextRequest, context: RouteContext) {
+async function postHandler(request: NextRequest, context: RouteContext) {
   try {
     const { workspaceSlug } = await context.params;
     const accessContext = await resolveInviteAccessContext(request, workspaceSlug);
@@ -362,6 +378,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
         acceptedAt: null,
         acceptedByUid: "",
         acceptedByEmail: "",
+        rejectedAt: null,
+        rejectedByUid: "",
+        rejectedByEmail: "",
         revokedAt: null,
         revokedByUid: "",
         resendCount: 0,
@@ -390,6 +409,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
         acceptedAt: null,
         acceptedByUid: "",
         acceptedByEmail: "",
+        rejectedAt: null,
+        rejectedByUid: "",
+        rejectedByEmail: "",
         revokedAt: null,
         revokedByUid: "",
         emailDeliveryStatus: "queued",
@@ -468,3 +490,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: message }, { status });
   }
 }
+
+export const POST = withWriteGuardrails(
+  {
+    routeId: "workspace.invites.create",
+  },
+  postHandler,
+);

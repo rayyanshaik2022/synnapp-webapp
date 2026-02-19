@@ -64,6 +64,7 @@ type MyWorkActionListProps = {
   emptyText: string;
   actions: MyActionRecord[];
   workspaceSlug: string;
+  accent: "dueSoon" | "overdue";
 };
 
 const quickActions = [
@@ -184,21 +185,65 @@ function parseListCount(value: unknown) {
 }
 
 function priorityChipClass(priority: ActionPriority) {
-  if (priority === "high") return "border-rose-200 bg-rose-50 text-rose-700";
-  if (priority === "medium") return "border-amber-200 bg-amber-50 text-amber-700";
-  return "border-slate-200 bg-slate-100 text-slate-700";
+  if (priority === "high") return "border-rose-300 bg-white text-rose-700";
+  if (priority === "medium") return "border-amber-300 bg-white text-amber-700";
+  return "border-slate-300 bg-white text-slate-700";
 }
 
 function dueChipClass(action: MyActionRecord) {
-  if (action.overdue) return "border-rose-200 bg-rose-50 text-rose-700";
-  if (action.dueSoon) return "border-amber-200 bg-amber-50 text-amber-700";
-  return "border-slate-200 bg-slate-100 text-slate-700";
+  if (action.overdue) return "border-rose-300 bg-white text-rose-700";
+  if (action.dueSoon) return "border-amber-300 bg-white text-amber-700";
+  return "border-slate-300 bg-white text-slate-700";
 }
 
 function decisionChipClass(status: DecisionStatus) {
-  if (status === "accepted") return "border-cyan-200 bg-cyan-50 text-cyan-700";
-  if (status === "proposed") return "border-slate-200 bg-slate-100 text-slate-700";
-  return "border-violet-200 bg-violet-50 text-violet-700";
+  if (status === "accepted") return "border-sky-300 bg-white text-sky-700";
+  if (status === "proposed") return "border-slate-300 bg-white text-slate-700";
+  return "border-violet-300 bg-white text-violet-700";
+}
+
+function dueCategoryAccentClass(category: "dueSoon" | "overdue") {
+  return category === "overdue"
+    ? "border-slate-300 border-l-4 border-l-rose-400"
+    : "border-slate-300 border-l-4 border-l-amber-400";
+}
+
+function dueCategoryDotClass(category: "dueSoon" | "overdue") {
+  return category === "overdue" ? "bg-rose-500" : "bg-amber-500";
+}
+
+function actionCardAccentClass(action: MyActionRecord) {
+  if (action.overdue) return "border-l-rose-400";
+  if (action.dueSoon) return "border-l-amber-400";
+  return "border-l-sky-400";
+}
+
+function decisionCardAccentClass(status: DecisionStatus) {
+  if (status === "accepted") return "border-l-sky-400";
+  if (status === "proposed") return "border-l-slate-400";
+  return "border-l-violet-400";
+}
+
+function quickActionToneDotClass(title: string) {
+  if (title.toLowerCase().includes("meeting")) return "border-sky-300 bg-sky-50 text-sky-700";
+  if (title.toLowerCase().includes("decision")) return "border-violet-300 bg-violet-50 text-violet-700";
+  return "border-emerald-300 bg-emerald-50 text-emerald-700";
+}
+
+function quickActionToneCtaClass(title: string) {
+  if (title.toLowerCase().includes("meeting")) {
+    return "border-sky-300 text-sky-700 group-hover:border-sky-500 group-hover:bg-sky-50";
+  }
+  if (title.toLowerCase().includes("decision")) {
+    return "border-violet-300 text-violet-700 group-hover:border-violet-500 group-hover:bg-violet-50";
+  }
+  return "border-emerald-300 text-emerald-700 group-hover:border-emerald-500 group-hover:bg-emerald-50";
+}
+
+function quickActionCtaLabel(title: string) {
+  if (title.toLowerCase().includes("meeting")) return "Create meeting";
+  if (title.toLowerCase().includes("decision")) return "Create decision";
+  return "Create action";
 }
 
 function normalizePath(path: string) {
@@ -213,16 +258,20 @@ function MyWorkActionList({
   emptyText,
   actions,
   workspaceSlug,
+  accent,
 }: MyWorkActionListProps) {
   return (
-    <WorkspacePanel>
-      <div>
+    <WorkspacePanel className={dueCategoryAccentClass(accent)}>
+      <div className="border-b border-slate-200 pb-3">
         <p className="text-xs font-semibold tracking-[0.18em] text-slate-500">{eyebrow}</p>
-        <h2 className="mt-1 text-xl font-semibold tracking-tight text-slate-900">{title}</h2>
+        <h2 className="mt-1 flex items-center gap-2 text-xl font-semibold tracking-tight text-slate-900">
+          <span className={`h-2 w-2 rounded-full ${dueCategoryDotClass(accent)}`} aria-hidden />
+          {title}
+        </h2>
       </div>
 
       {actions.length === 0 ? (
-        <p className="mt-4 rounded-sm border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
+        <p className="mt-4 rounded-sm border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700">
           {emptyText}
         </p>
       ) : (
@@ -230,12 +279,12 @@ function MyWorkActionList({
           {actions.slice(0, 6).map((action) => (
             <article
               key={`${title}-${action.id}`}
-              className="rounded-lg border border-slate-200 bg-white px-4 py-3"
+              className={`rounded-lg border border-slate-300 border-l-4 bg-white px-4 py-3 shadow-sm ${actionCardAccentClass(action)}`}
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <p className="text-sm font-semibold text-slate-900">{action.title}</p>
-                  <p className="mt-1 text-xs text-slate-600">
+                  <p className="text-sm font-semibold text-slate-950">{action.title}</p>
+                  <p className="mt-1 text-xs text-slate-700">
                     {action.project} • {action.dueLabel}
                   </p>
                 </div>
@@ -456,7 +505,7 @@ export default async function WorkspaceMyWorkPage({ params }: WorkspaceMyWorkPag
               Per-workspace focus view for your assigned work and mentions.
             </p>
           </div>
-          <span className="rounded-sm border border-cyan-200 bg-cyan-50 px-3 py-1 text-xs font-semibold tracking-[0.08em] text-cyan-800">
+          <span className="rounded-sm border border-[color:var(--accent-soft)] bg-white px-3 py-1 text-xs font-semibold tracking-[0.08em] text-[color:var(--accent-strong)]">
             {access.workspaceSlug.toUpperCase()}
           </span>
         </div>
@@ -466,22 +515,36 @@ export default async function WorkspaceMyWorkPage({ params }: WorkspaceMyWorkPag
             label="Open Assigned"
             value={String(myOpenActions.length)}
             detail="Open actions assigned to you"
+            className="border-slate-300 border-l-4 border-l-sky-400"
           />
-          <SummaryTile label="Due Soon" value={String(dueSoonCount)} detail="Next 48 hours" />
-          <SummaryTile label="Overdue" value={String(overdueCount)} detail="Needs attention now" />
+          <SummaryTile
+            label="Due Soon"
+            value={String(dueSoonCount)}
+            detail="Next 48 hours"
+            className="border-slate-300 border-l-4 border-l-amber-400"
+          />
+          <SummaryTile
+            label="Overdue"
+            value={String(overdueCount)}
+            detail="Needs attention now"
+            className="border-slate-300 border-l-4 border-l-rose-400"
+          />
           <SummaryTile
             label="Unread Mentions"
             value={String(unreadMentionsCount)}
             detail="Recent mention activity"
+            className="border-slate-300 border-l-4 border-l-violet-400"
           />
         </div>
       </WorkspacePanel>
 
       <WorkspacePanel>
-        <div className="flex items-end justify-between">
+        <div className="flex items-end justify-between border-b border-slate-200 pb-3">
           <div>
             <p className="text-xs font-semibold tracking-[0.18em] text-slate-500">QUICK ACTIONS</p>
-            <h2 className="mt-1 text-xl font-semibold tracking-tight text-slate-900">Start new work</h2>
+            <h2 className="mt-1 text-xl font-semibold tracking-tight text-slate-900">
+              Planning quick actions
+            </h2>
           </div>
         </div>
         <div className="mt-4 grid gap-3 md:grid-cols-3">
@@ -489,10 +552,25 @@ export default async function WorkspaceMyWorkPage({ params }: WorkspaceMyWorkPag
             <Link
               key={action.title}
               href={`/${access.workspaceSlug}/${action.href}`}
-              className="rounded-lg border border-slate-200 bg-white p-4 transition hover:border-slate-400 hover:shadow-sm"
+              className="group flex min-h-[96px] items-center gap-3 rounded-lg border border-slate-300 bg-white px-3 py-3 transition hover:border-slate-500 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--accent-soft)]"
             >
-              <p className="text-sm font-semibold text-slate-900">{action.title}</p>
-              <p className="mt-1 text-sm text-slate-600">{action.description}</p>
+              <span
+                className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border text-base font-semibold ${quickActionToneDotClass(action.title)}`}
+                aria-hidden
+              >
+                +
+              </span>
+
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-slate-950">{action.title}</p>
+                <p className="mt-0.5 text-xs text-slate-700">{action.description}</p>
+              </div>
+
+              <span
+                className={`inline-flex shrink-0 items-center rounded-md border px-2.5 py-1 text-[11px] font-semibold tracking-[0.04em] transition ${quickActionToneCtaClass(action.title)}`}
+              >
+                {quickActionCtaLabel(action.title)}
+              </span>
             </Link>
           ))}
         </div>
@@ -505,6 +583,7 @@ export default async function WorkspaceMyWorkPage({ params }: WorkspaceMyWorkPag
           emptyText="No due-soon actions assigned to you in this workspace."
           actions={dueSoonActions}
           workspaceSlug={access.workspaceSlug}
+          accent="dueSoon"
         />
         <MyWorkActionList
           eyebrow="OVERDUE"
@@ -512,16 +591,18 @@ export default async function WorkspaceMyWorkPage({ params }: WorkspaceMyWorkPag
           emptyText="No overdue actions assigned to you in this workspace."
           actions={overdueActions}
           workspaceSlug={access.workspaceSlug}
+          accent="overdue"
         />
       </div>
 
       <WorkspacePanel>
-        <div className="flex items-end justify-between gap-3">
+        <div className="flex items-end justify-between gap-3 border-b border-slate-200 pb-3">
           <div>
             <p className="text-xs font-semibold tracking-[0.18em] text-slate-500">
               ASSIGNED ACTIONS
             </p>
-            <h2 className="mt-1 text-xl font-semibold tracking-tight text-slate-900">
+            <h2 className="mt-1 flex items-center gap-2 text-xl font-semibold tracking-tight text-slate-900">
+              <span className="h-2 w-2 rounded-full bg-sky-500" aria-hidden />
               Open Actions Assigned To Me
             </h2>
           </div>
@@ -534,17 +615,20 @@ export default async function WorkspaceMyWorkPage({ params }: WorkspaceMyWorkPag
         </div>
 
         {myOpenActions.length === 0 ? (
-          <p className="mt-4 rounded-sm border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
+          <p className="mt-4 rounded-sm border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700">
             No open actions assigned to you in this workspace.
           </p>
         ) : (
           <div className="mt-4 space-y-3">
             {myOpenActions.map((action) => (
-              <article key={action.id} className="rounded-lg border border-slate-200 bg-white px-4 py-3">
+              <article
+                key={action.id}
+                className={`rounded-lg border border-slate-300 border-l-4 bg-white px-4 py-3 shadow-sm ${actionCardAccentClass(action)}`}
+              >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <p className="text-sm font-semibold text-slate-900">{action.title}</p>
-                    <p className="mt-1 text-xs text-slate-600">
+                    <p className="text-sm font-semibold text-slate-950">{action.title}</p>
+                    <p className="mt-1 text-xs text-slate-700">
                       {action.id} • {action.project}
                     </p>
                   </div>
@@ -559,14 +643,14 @@ export default async function WorkspaceMyWorkPage({ params }: WorkspaceMyWorkPag
                   </div>
                 </div>
 
-                <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-slate-600">
-                  <span className="rounded-sm border border-slate-200 bg-slate-100 px-2 py-1">
+                <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-slate-700">
+                  <span className="rounded-sm border border-slate-300 bg-slate-50 px-2 py-1">
                     {action.updatedLabel}
                   </span>
                   {action.meetingId ? (
                     <Link
                       href={`/${access.workspaceSlug}/meetings/${action.meetingId}`}
-                      className="rounded-sm border border-slate-200 bg-slate-100 px-2 py-1 transition hover:border-slate-400"
+                      className="rounded-sm border border-slate-300 bg-slate-50 px-2 py-1 transition hover:border-slate-500 hover:bg-white hover:text-slate-900"
                     >
                       Meeting {action.meetingId}
                     </Link>
@@ -574,7 +658,7 @@ export default async function WorkspaceMyWorkPage({ params }: WorkspaceMyWorkPag
                   {action.decisionId ? (
                     <Link
                       href={`/${access.workspaceSlug}/decisions/${action.decisionId}`}
-                      className="rounded-sm border border-slate-200 bg-slate-100 px-2 py-1 transition hover:border-slate-400"
+                      className="rounded-sm border border-slate-300 bg-slate-50 px-2 py-1 transition hover:border-slate-500 hover:bg-white hover:text-slate-900"
                     >
                       Decision {action.decisionId}
                     </Link>
@@ -594,37 +678,43 @@ export default async function WorkspaceMyWorkPage({ params }: WorkspaceMyWorkPag
 
       <div className="grid gap-6 xl:grid-cols-[1.25fr_1fr]">
         <WorkspacePanel>
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-xl font-semibold tracking-tight text-slate-900">Recent Decisions</h2>
+          <div className="mb-4 flex items-center justify-between border-b border-slate-200 pb-3">
+            <h2 className="flex items-center gap-2 text-xl font-semibold tracking-tight text-slate-900">
+              <span className="h-2 w-2 rounded-full bg-sky-500" aria-hidden />
+              Recent Decisions
+            </h2>
             <Link
               href={`/${access.workspaceSlug}/decisions`}
-              className="text-sm font-semibold text-[color:var(--accent)] hover:text-[color:var(--accent-strong)]"
+              className="rounded-sm border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-slate-500 hover:text-slate-900"
             >
               View all
             </Link>
           </div>
 
           {recentDecisions.length === 0 ? (
-            <p className="rounded-sm border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
+            <p className="rounded-sm border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700">
               No decisions in this workspace yet.
             </p>
           ) : (
             <div className="space-y-3">
               {recentDecisions.map((decision) => (
-                <article key={decision.id} className="rounded-lg border border-slate-200 bg-white px-4 py-3">
+                <article
+                  key={decision.id}
+                  className={`rounded-lg border border-slate-300 border-l-4 bg-white px-4 py-3 shadow-sm ${decisionCardAccentClass(decision.status)}`}
+                >
                   <div className="flex items-start justify-between gap-3">
-                    <p className="text-sm font-semibold text-slate-900">{decision.title}</p>
+                    <p className="text-sm font-semibold text-slate-950">{decision.title}</p>
                     <span
                       className={`rounded-sm border px-2 py-1 text-[11px] font-semibold tracking-[0.08em] ${decisionChipClass(decision.status)}`}
                     >
                       {titleCase(decision.status)}
                     </span>
                   </div>
-                  <p className="mt-1 text-xs text-slate-600">
+                  <p className="mt-1 text-xs text-slate-700">
                     {decision.id} • Owner {decision.owner}
                   </p>
-                  <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-slate-600">
-                    <span className="rounded-sm border border-slate-200 bg-slate-100 px-2 py-1">
+                  <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-slate-700">
+                    <span className="rounded-sm border border-slate-300 bg-slate-50 px-2 py-1">
                       {decision.updatedLabel}
                     </span>
                     <Link
@@ -641,41 +731,47 @@ export default async function WorkspaceMyWorkPage({ params }: WorkspaceMyWorkPag
         </WorkspacePanel>
 
         <WorkspacePanel>
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-xl font-semibold tracking-tight text-slate-900">Recent Meetings</h2>
+          <div className="mb-4 flex items-center justify-between border-b border-slate-200 pb-3">
+            <h2 className="flex items-center gap-2 text-xl font-semibold tracking-tight text-slate-900">
+              <span className="h-2 w-2 rounded-full bg-indigo-500" aria-hidden />
+              Recent Meetings
+            </h2>
             <Link
               href={`/${access.workspaceSlug}/meetings`}
-              className="text-sm font-semibold text-[color:var(--accent)] hover:text-[color:var(--accent-strong)]"
+              className="rounded-sm border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-slate-500 hover:text-slate-900"
             >
               View all
             </Link>
           </div>
 
           {recentMeetings.length === 0 ? (
-            <p className="rounded-sm border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
+            <p className="rounded-sm border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700">
               No meetings found yet.
             </p>
           ) : (
             <div className="space-y-3">
               {recentMeetings.map((meeting) => (
-                <article key={meeting.id} className="rounded-lg border border-slate-200 bg-white px-4 py-3">
-                  <p className="text-sm font-semibold text-slate-900">{meeting.title}</p>
-                  <p className="mt-1 text-xs text-slate-600">
+                <article
+                  key={meeting.id}
+                  className="rounded-lg border border-slate-300 border-l-4 border-l-indigo-400 bg-white px-4 py-3 shadow-sm"
+                >
+                  <p className="text-sm font-semibold text-slate-950">{meeting.title}</p>
+                  <p className="mt-1 text-xs text-slate-700">
                     {meeting.id} • {meeting.team} • {meeting.timeLabel}
                   </p>
                   <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-semibold tracking-[0.08em] text-slate-700">
-                    <span className="rounded-sm border border-slate-200 bg-slate-100 px-2 py-1">
+                    <span className="rounded-sm border border-slate-300 bg-slate-50 px-2 py-1">
                       Decisions {meeting.decisions}
                     </span>
-                    <span className="rounded-sm border border-slate-200 bg-slate-100 px-2 py-1">
+                    <span className="rounded-sm border border-slate-300 bg-slate-50 px-2 py-1">
                       Actions {meeting.actions}
                     </span>
-                    <span className="rounded-sm border border-slate-200 bg-slate-100 px-2 py-1">
+                    <span className="rounded-sm border border-slate-300 bg-slate-50 px-2 py-1">
                       Questions {meeting.openQuestions}
                     </span>
                   </div>
-                  <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-slate-600">
-                    <span className="rounded-sm border border-slate-200 bg-slate-100 px-2 py-1">
+                  <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-slate-700">
+                    <span className="rounded-sm border border-slate-300 bg-slate-50 px-2 py-1">
                       {meeting.updatedLabel}
                     </span>
                     <Link
@@ -693,39 +789,45 @@ export default async function WorkspaceMyWorkPage({ params }: WorkspaceMyWorkPag
       </div>
 
       <WorkspacePanel>
-        <div className="flex items-end justify-between gap-3">
+        <div className="flex items-end justify-between gap-3 border-b border-slate-200 pb-3">
           <div>
             <p className="text-xs font-semibold tracking-[0.18em] text-slate-500">MENTIONS</p>
-            <h2 className="mt-1 text-xl font-semibold tracking-tight text-slate-900">
+            <h2 className="mt-1 flex items-center gap-2 text-xl font-semibold tracking-tight text-slate-900">
+              <span className="h-2 w-2 rounded-full bg-violet-500" aria-hidden />
               Recently Mentioned Items
             </h2>
           </div>
         </div>
 
         {mentionItems.length === 0 ? (
-          <p className="mt-4 rounded-sm border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
+          <p className="mt-4 rounded-sm border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700">
             No recent mentions in this workspace.
           </p>
         ) : (
           <div className="mt-4 space-y-3">
             {mentionItems.map((mention) => (
-              <article key={mention.id} className="rounded-lg border border-slate-200 bg-white px-4 py-3">
+              <article
+                key={mention.id}
+                className={`rounded-lg border border-slate-300 border-l-4 bg-white px-4 py-3 shadow-sm ${
+                  mention.isRead ? "border-l-slate-400" : "border-l-violet-400"
+                }`}
+              >
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
-                    <p className="text-sm font-semibold text-slate-900">{mention.entityTitle}</p>
-                    <p className="mt-1 text-xs text-slate-600">
+                    <p className="text-sm font-semibold text-slate-950">{mention.entityTitle}</p>
+                    <p className="mt-1 text-xs text-slate-700">
                       Mentioned by {mention.mentionedByName}
                     </p>
                   </div>
                   <div className="flex items-center gap-2 text-[11px] font-semibold tracking-[0.08em]">
-                    <span className="rounded-sm border border-slate-200 bg-slate-100 px-2 py-1 text-slate-700">
+                    <span className="rounded-sm border border-slate-300 bg-white px-2 py-1 text-slate-700">
                       {titleCase(mention.entityType)}
                     </span>
                     <span
                       className={`rounded-sm border px-2 py-1 ${
                         mention.isRead
-                          ? "border-slate-200 bg-slate-100 text-slate-700"
-                          : "border-cyan-200 bg-cyan-50 text-cyan-800"
+                          ? "border-slate-300 bg-white text-slate-700"
+                          : "border-violet-300 bg-white text-violet-700"
                       }`}
                     >
                       {mention.isRead ? "Read" : "New"}
@@ -734,11 +836,11 @@ export default async function WorkspaceMyWorkPage({ params }: WorkspaceMyWorkPag
                 </div>
 
                 {mention.preview ? (
-                  <p className="mt-2 text-sm text-slate-700">{mention.preview}</p>
+                  <p className="mt-2 text-sm text-slate-800">{mention.preview}</p>
                 ) : null}
 
-                <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-slate-600">
-                  <span className="rounded-sm border border-slate-200 bg-slate-100 px-2 py-1">
+                <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-slate-700">
+                  <span className="rounded-sm border border-slate-300 bg-slate-50 px-2 py-1">
                     {mention.updatedLabel}
                   </span>
                   <Link

@@ -12,7 +12,7 @@ import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const rules = readFileSync(resolve(__dirname, "../../firestore.rules"), "utf8");
-const projectId = "synn-firestore-rules";
+const projectId = "synnapp-firestore-rules";
 const workspaceId = "ws-1";
 
 let testEnv;
@@ -314,6 +314,36 @@ test("admin can read and create workspace invites", async () => {
       updatedAt: 2,
       expiresAt: 9999999999999,
       resendCount: 0,
+    }),
+  );
+});
+
+test("clients cannot read workspace invite token documents", async () => {
+  const memberDb = authedDb("member-1");
+  const tokenRef = doc(memberDb, "workspaceInviteTokens", "token-1");
+
+  await assertFails(getDoc(tokenRef));
+});
+
+test("clients cannot read or write guardrail collections", async () => {
+  const ownerDb = authedDb("owner-1");
+  const rateLimitRef = doc(ownerDb, "apiRateLimits", "sample");
+  const auditLogRef = doc(ownerDb, "apiAuditLogs", "sample");
+
+  await assertFails(getDoc(rateLimitRef));
+  await assertFails(getDoc(auditLogRef));
+  await assertFails(
+    setDoc(rateLimitRef, {
+      routeId: "sample",
+      count: 1,
+      windowSeconds: 60,
+    }),
+  );
+  await assertFails(
+    setDoc(auditLogRef, {
+      routeId: "sample",
+      outcome: "success",
+      statusCode: 200,
     }),
   );
 });

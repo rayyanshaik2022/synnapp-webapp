@@ -5,7 +5,7 @@ export default function Home() {
     <main className="flex min-h-screen items-center justify-center px-4 py-10 sm:px-6">
       <section className="w-full max-w-2xl rounded-3xl border border-slate-200 bg-white/80 p-8 shadow-xl backdrop-blur sm:p-10">
         <p className="mb-4 inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs tracking-[0.2em] text-slate-600">
-          SYNN
+          SYNNAPP
         </p>
         <h1 className="text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
           Firebase auth is live.

@@ -115,7 +115,12 @@ export function WorkspaceProfileSettings({
   return (
     <>
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-xl font-semibold tracking-tight text-slate-900">Workspace Profile</h2>
+        <div>
+          <h2 className="text-xl font-semibold tracking-tight text-slate-900">Workspace Profile</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Applies only to this workspace and does not change your personal account profile.
+          </p>
+        </div>
         <button
           type="button"
           onClick={handleSave}
@@ -139,14 +144,10 @@ export function WorkspaceProfileSettings({
             className={`w-full rounded-sm border px-3 py-2.5 text-sm outline-none ${
               canManageSlug
                 ? "border-slate-300 bg-white text-slate-900"
-                : "border-slate-200 bg-slate-100 text-slate-500"
+              : "border-slate-200 bg-slate-100 text-slate-500"
             }`}
           />
         </label>
-        <SettingField label="Plan Tier" value="Pro" />
-        <SettingField label="Primary Region" value="us-central1" />
-        <SettingField label="Timezone" value="America/Los_Angeles" />
-        <SettingField label="Default Review Cadence" value="90 days" />
       </div>
 
       <p className="mt-3 text-xs text-slate-500">

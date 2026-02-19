@@ -129,10 +129,10 @@ const meetingSeeds: Record<string, MeetingRecordSeed> = {
       },
     ],
     digestRecipients: [
-      { id: "r-1", label: "Priya Shah <priya@synn.co>", enabled: true },
-      { id: "r-2", label: "Noah Lin <noah@synn.co>", enabled: true },
-      { id: "r-3", label: "Product Ops Team <product-ops@synn.co>", enabled: true },
-      { id: "r-4", label: "Stakeholders <leadership@synn.co>", enabled: false },
+      { id: "r-1", label: "Priya Shah <priya@synnapp.co>", enabled: true },
+      { id: "r-2", label: "Noah Lin <noah@synnapp.co>", enabled: true },
+      { id: "r-3", label: "Product Ops Team <product-ops@synnapp.co>", enabled: true },
+      { id: "r-4", label: "Stakeholders <leadership@synnapp.co>", enabled: false },
     ],
   },
   "M-312": {
@@ -218,9 +218,9 @@ const meetingSeeds: Record<string, MeetingRecordSeed> = {
       },
     ],
     digestRecipients: [
-      { id: "r-1", label: "Architecture Council <arch@synn.co>", enabled: true },
-      { id: "r-2", label: "Engineering Managers <eng-mgr@synn.co>", enabled: true },
-      { id: "r-3", label: "Leadership <leadership@synn.co>", enabled: false },
+      { id: "r-1", label: "Architecture Council <arch@synnapp.co>", enabled: true },
+      { id: "r-2", label: "Engineering Managers <eng-mgr@synnapp.co>", enabled: true },
+      { id: "r-3", label: "Leadership <leadership@synnapp.co>", enabled: false },
     ],
   },
 };
@@ -404,6 +404,70 @@ function normalizeBoolean(value: unknown, fallback = false) {
   return typeof value === "boolean" ? value : fallback;
 }
 
+type MeetingStateValue = MeetingRecordSeed["state"];
+type DigestStateValue = MeetingRecordSeed["digest"];
+type AgendaStateValue = MeetingRecordSeed["agenda"][number]["state"];
+type QuestionStatusValue = MeetingRecordSeed["openQuestions"][number]["status"];
+type DecisionStatusValue = MeetingRecordSeed["decisions"][number]["status"];
+type ActionStatusValue = MeetingRecordSeed["actions"][number]["status"];
+type ActionPriorityValue = MeetingRecordSeed["actions"][number]["priority"];
+
+function parseMeetingState(value: unknown): MeetingStateValue {
+  const normalized = normalizeText(value);
+  if (normalized === "scheduled" || normalized === "inProgress" || normalized === "completed") {
+    return normalized;
+  }
+  return "scheduled";
+}
+
+function parseDigestState(value: unknown): DigestStateValue {
+  const normalized = normalizeText(value);
+  if (normalized === "pending" || normalized === "sent") {
+    return normalized;
+  }
+  return "pending";
+}
+
+function parseAgendaState(value: unknown): AgendaStateValue {
+  const normalized = normalizeText(value);
+  if (normalized === "queued" || normalized === "inProgress" || normalized === "done") {
+    return normalized;
+  }
+  return "queued";
+}
+
+function parseQuestionStatus(value: unknown): QuestionStatusValue {
+  const normalized = normalizeText(value);
+  if (normalized === "open" || normalized === "resolved") {
+    return normalized;
+  }
+  return "open";
+}
+
+function parseDecisionStatus(value: unknown): DecisionStatusValue {
+  const normalized = normalizeText(value);
+  if (normalized === "accepted" || normalized === "proposed") {
+    return normalized;
+  }
+  return "proposed";
+}
+
+function parseActionStatus(value: unknown): ActionStatusValue {
+  const normalized = normalizeText(value);
+  if (normalized === "open" || normalized === "blocked" || normalized === "done") {
+    return normalized;
+  }
+  return "open";
+}
+
+function parseActionPriority(value: unknown): ActionPriorityValue {
+  const normalized = normalizeText(value);
+  if (normalized === "high" || normalized === "medium" || normalized === "low") {
+    return normalized;
+  }
+  return "medium";
+}
+
 function parseDate(value: unknown) {
   if (value && typeof value === "object" && "toDate" in value) {
     try {
@@ -493,15 +557,10 @@ function parsePersistedMeeting(
     const item = entry as Record<string, unknown>;
     const title = normalizeText(item.title);
     if (!title) return null;
-    const state = normalizeText(item.state);
-    const normalizedState =
-      state === "queued" || state === "inProgress" || state === "done"
-        ? state
-        : "queued";
     return {
       id: normalizeText(item.id) || `ag-${index + 1}`,
       title,
-      state: normalizedState,
+      state: parseAgendaState(item.state),
     };
   });
 
@@ -523,14 +582,12 @@ function parsePersistedMeeting(
     const question = entry as Record<string, unknown>;
     const questionText = normalizeText(question.question);
     if (!questionText) return null;
-    const status = normalizeText(question.status);
-    const normalizedStatus = status === "open" || status === "resolved" ? status : "open";
     return {
       id: normalizeText(question.id) || `Q-${index + 1}`,
       question: questionText,
       owner: normalizeText(question.owner) || "Unassigned",
       dueLabel: normalizeText(question.dueLabel) || "No due date",
-      status: normalizedStatus,
+      status: parseQuestionStatus(question.status),
     };
   });
 
@@ -539,13 +596,11 @@ function parsePersistedMeeting(
     const decision = entry as Record<string, unknown>;
     const title = normalizeText(decision.title);
     if (!title) return null;
-    const status = normalizeText(decision.status);
-    const normalizedStatus = status === "accepted" || status === "proposed" ? status : "proposed";
     return {
       id: normalizeText(decision.id) || `D-${index + 1}`,
       title,
       owner: normalizeText(decision.owner) || "Unassigned",
-      status: normalizedStatus,
+      status: parseDecisionStatus(decision.status),
       rationale: normalizeText(decision.rationale) || "Rationale to be added.",
     };
   });
@@ -555,21 +610,13 @@ function parsePersistedMeeting(
     const action = entry as Record<string, unknown>;
     const title = normalizeText(action.title);
     if (!title) return null;
-    const status = normalizeText(action.status);
-    const priority = normalizeText(action.priority);
-    const normalizedStatus =
-      status === "open" || status === "blocked" || status === "done" ? status : "open";
-    const normalizedPriority =
-      priority === "high" || priority === "medium" || priority === "low"
-        ? priority
-        : "medium";
     return {
       id: normalizeText(action.id) || `A-${index + 1}`,
       title,
       owner: normalizeText(action.owner) || "Unassigned",
       dueLabel: normalizeText(action.dueLabel) || "No due date",
-      priority: normalizedPriority,
-      status: normalizedStatus,
+      priority: parseActionPriority(action.priority),
+      status: parseActionStatus(action.status),
     };
   });
 
@@ -584,15 +631,6 @@ function parsePersistedMeeting(
       enabled: normalizeBoolean(recipient.enabled, index < 2),
     };
   });
-
-  const meetingState = normalizeText(data.state);
-  const digestState = normalizeText(data.digest);
-  const normalizedMeetingState =
-    meetingState === "scheduled" || meetingState === "inProgress" || meetingState === "completed"
-      ? meetingState
-      : "scheduled";
-  const normalizedDigestState =
-    digestState === "pending" || digestState === "sent" ? digestState : "pending";
 
   const digestOptionsRaw =
     data.digestOptions && typeof data.digestOptions === "object"
@@ -610,8 +648,8 @@ function parsePersistedMeeting(
     objective:
       normalizeText(data.objective) ||
       "Capture outcomes, decisions, actions, and open questions from this meeting.",
-    state: normalizedMeetingState,
-    digest: normalizedDigestState,
+    state: parseMeetingState(data.state),
+    digest: parseDigestState(data.digest),
     locked: normalizeBoolean(data.locked, false),
     revision:
       typeof data.revision === "number" && Number.isFinite(data.revision) && data.revision > 0

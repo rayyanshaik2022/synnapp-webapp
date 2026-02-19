@@ -1,4 +1,4 @@
-# Firebase Connection Setup (Synn `webapp`)
+# Firebase Connection Setup (Synnapp `webapp`)
 
 This guide covers everything needed to connect the Next.js app to your Firebase project.
 
@@ -20,7 +20,7 @@ This guide covers everything needed to connect the Next.js app to your Firebase 
 
 1. In Firebase Console, go to Project settings.
 2. Under "Your apps", click Web (`</>`).
-3. Register app name (for example: `synn-webapp`).
+3. Register app name (for example: `synnapp-webapp`).
 4. Copy the config values:
    - `apiKey`
    - `authDomain`

@@ -17,6 +17,7 @@ import {
   areStringArraysEqual,
   writeCanonicalHistoryEvent,
 } from "@/lib/workspace/activity-history";
+import { withWriteGuardrails } from "@/lib/api/write-guardrails";
 
 type RouteContext = {
   params: Promise<{
@@ -232,7 +233,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   }
 }
 
-export async function PATCH(request: NextRequest, context: RouteContext) {
+async function patchHandler(request: NextRequest, context: RouteContext) {
   try {
     const { workspaceSlug, decisionId } = await context.params;
     const authorizedContext = await resolveAuthorizedDecisionContext(
@@ -495,3 +496,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: message }, { status });
   }
 }
+
+export const PATCH = withWriteGuardrails(
+  {
+    routeId: "workspace.decisions.update",
+  },
+  patchHandler,
+);

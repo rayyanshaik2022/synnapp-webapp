@@ -15,6 +15,7 @@ type SummaryTileProps = {
 type FilterChipProps = {
   label: string;
   active?: boolean;
+  href?: string;
   className?: string;
 };
 
@@ -39,23 +40,39 @@ export function SummaryTile({ label, value, detail, className }: SummaryTileProp
   return (
     <article className={cx("rounded-lg border border-slate-200 bg-white px-4 py-3", className)}>
       <p className="text-[11px] font-semibold tracking-[0.13em] text-slate-500">{label}</p>
-      <p className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">{value}</p>
+      <p className="mt-1 break-words text-2xl font-semibold tracking-tight text-slate-900 [overflow-wrap:anywhere]">
+        {value}
+      </p>
       <p className="mt-1 text-xs text-slate-600">{detail}</p>
     </article>
   );
 }
 
-export function FilterChip({ label, active = false, className }: FilterChipProps) {
+export function FilterChip({ label, active = false, href, className }: FilterChipProps) {
+  const chipClassName = cx(
+    active
+      ? "rounded-sm border border-slate-500 bg-white px-3 py-1.5 text-xs font-semibold tracking-[0.08em] text-slate-900"
+      : "rounded-sm border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold tracking-[0.08em] text-slate-800",
+    className,
+  );
+
+  if (href) {
+    return (
+      <a
+        href={href}
+        aria-label={`Jump to ${label}`}
+        className={cx(
+          "inline-flex items-center gap-1 rounded-sm border border-slate-400 bg-white px-3 py-1.5 text-xs font-semibold tracking-[0.08em] text-slate-900 transition hover:border-slate-700 hover:bg-slate-100 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300",
+          className,
+        )}
+      >
+        {label}
+      </a>
+    );
+  }
+
   return (
-    <button
-      type="button"
-      className={cx(
-        active
-          ? "rounded-sm border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold tracking-[0.08em] text-slate-700"
-          : "rounded-sm border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold tracking-[0.08em] text-slate-600",
-        className,
-      )}
-    >
+    <button type="button" className={chipClassName}>
       {label}
     </button>
   );

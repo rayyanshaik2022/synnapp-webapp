@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { getFirebaseClientAuth } from "@/lib/firebase/client";
 import { updateProfile } from "firebase/auth";
 
@@ -37,11 +37,18 @@ const initialSlugAvailabilityState: SlugAvailabilityState = {
   message: "",
 };
 
-export function OnboardingForm() {
+type OnboardingFormProps = {
+  provider?: string;
+  redirectPath?: string;
+};
+
+export function OnboardingForm({
+  provider: providerInput,
+  redirectPath: redirectPathInput,
+}: OnboardingFormProps) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const provider = searchParams.get("provider") ?? "google";
-  const redirectPath = searchParams.get("redirect");
+  const provider = providerInput?.trim() || "google";
+  const redirectPath = redirectPathInput?.trim() || "";
   const auth = getFirebaseClientAuth();
   const initialDisplayName = auth.currentUser?.displayName?.trim() ?? "";
 

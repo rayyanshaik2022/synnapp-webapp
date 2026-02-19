@@ -8,6 +8,11 @@ import {
   isWorkspaceMemberRole,
   type WorkspaceMemberRole,
 } from "@/lib/auth/permissions";
+import { withWriteGuardrails } from "@/lib/api/write-guardrails";
+import {
+  MAX_WORKSPACE_MEMBERSHIPS,
+  parseWorkspaceSlugs,
+} from "@/lib/workspace/limits";
 
 type RouteContext = {
   params: Promise<{
@@ -111,7 +116,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   }
 }
 
-export async function POST(request: NextRequest, context: RouteContext) {
+async function postHandler(request: NextRequest, context: RouteContext) {
   try {
     const uid = await authenticateUid(request);
     const { workspaceSlug } = await context.params;
@@ -174,6 +179,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
       const memberSnapshot = await transaction.get(memberRef);
       const userSnapshot = await transaction.get(userRef);
       created = !memberSnapshot.exists;
+      const userWorkspaceSlugs = parseWorkspaceSlugs(userSnapshot.get("workspaceSlugs"));
+      const isNewMembership =
+        !memberSnapshot.exists && !userWorkspaceSlugs.includes(workspace.workspaceSlug);
+      if (isNewMembership && userWorkspaceSlugs.length >= MAX_WORKSPACE_MEMBERSHIPS) {
+        throw new Error("WORKSPACE_MEMBERSHIP_LIMIT_REACHED");
+      }
 
       const joinedAt = memberSnapshot.get("joinedAt") ?? now;
 
@@ -221,7 +232,21 @@ export async function POST(request: NextRequest, context: RouteContext) {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to add member.";
+    if (message === "WORKSPACE_MEMBERSHIP_LIMIT_REACHED") {
+      return NextResponse.json(
+        { error: `User is already in ${MAX_WORKSPACE_MEMBERSHIPS} workspaces.` },
+        { status: 403 },
+      );
+    }
+
     const status = message === "UNAUTHORIZED" ? 401 : 500;
     return NextResponse.json({ error: message }, { status });
   }
 }
+
+export const POST = withWriteGuardrails(
+  {
+    routeId: "workspace.members.create",
+  },
+  postHandler,
+);

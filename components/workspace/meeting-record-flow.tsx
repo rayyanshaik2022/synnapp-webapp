@@ -496,16 +496,11 @@ export function MeetingRecordFlow({ workspaceSlug, meeting }: MeetingRecordFlowP
   }
 
   const commitPendingRemoval = useCallback((key: string) => {
-    let pending: PendingRemoval | null = null;
-
-    setPendingRemovals((prev) => {
-      const found = prev.find((entry) => entry.key === key) ?? null;
-      if (!found) return prev;
-      pending = found;
-      return prev.filter((entry) => entry.key !== key);
-    });
+    const pending = pendingRemovalsRef.current.find((entry) => entry.key === key) ?? null;
 
     if (!pending) return;
+
+    setPendingRemovals((prev) => prev.filter((entry) => entry.key !== key));
 
     setRevision((value) => value + 1);
 
@@ -522,16 +517,11 @@ export function MeetingRecordFlow({ workspaceSlug, meeting }: MeetingRecordFlowP
   }, []);
 
   const undoPendingRemoval = useCallback((key: string) => {
-    let pending: PendingRemoval | null = null;
-
-    setPendingRemovals((prev) => {
-      const found = prev.find((entry) => entry.key === key) ?? null;
-      if (!found) return prev;
-      pending = found;
-      return prev.filter((entry) => entry.key !== key);
-    });
+    const pending = pendingRemovalsRef.current.find((entry) => entry.key === key) ?? null;
 
     if (!pending) return;
+
+    setPendingRemovals((prev) => prev.filter((entry) => entry.key !== key));
 
     window.clearTimeout(pending.timerId);
 

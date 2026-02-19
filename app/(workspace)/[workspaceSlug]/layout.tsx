@@ -13,8 +13,8 @@ const navItems = [
   { href: "decisions", label: "Decisions" },
   { href: "actions", label: "Actions" },
   { href: "search", label: "Search" },
-  { href: "settings", label: "Settings" },
-  { href: "profile", label: "Profile" },
+  { href: "profile", label: "Workspace Profile" },
+  { href: "settings", label: "Workspace Settings" },
 ];
 
 export default async function WorkspaceLayout({
@@ -46,7 +46,7 @@ export default async function WorkspaceLayout({
             <div className="sticky top-4 space-y-4">
               <section className="rounded-2xl border border-slate-700 bg-[linear-gradient(165deg,#0f172a_0%,#1e293b_100%)] px-5 py-6 text-white shadow-[0_18px_36px_rgba(15,23,42,0.25)]">
                 <p className="text-xs font-semibold tracking-[0.2em] text-slate-300">
-                  SYNN OPERATIONS
+                  SYNNAPP OPERATIONS
                 </p>
                 <h1 className="mt-3 text-lg font-semibold tracking-tight">{workspaceName}</h1>
                 <p className="mt-1 text-xs text-slate-300">

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminAuth } from "@/lib/firebase/admin";
 import { SESSION_COOKIE_NAME, SESSION_MAX_AGE_SECONDS } from "@/lib/auth/session";
+import { withWriteGuardrails } from "@/lib/api/write-guardrails";
 
 const SESSION_MAX_AGE_MS = SESSION_MAX_AGE_SECONDS * 1000;
 
@@ -8,7 +9,7 @@ type SessionRequestBody = {
   idToken?: string;
 };
 
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest) {
   try {
     const body = (await request.json()) as SessionRequestBody;
     const idToken = body.idToken?.trim();
@@ -43,7 +44,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function DELETE() {
+async function deleteHandler() {
   const response = NextResponse.json({ ok: true });
 
   response.cookies.set({
@@ -58,3 +59,26 @@ export async function DELETE() {
 
   return response;
 }
+
+export const POST = withWriteGuardrails(
+  {
+    routeId: "auth.session.create",
+    rateLimit: {
+      maxRequests: 30,
+      windowSeconds: 60,
+      scope: "ip",
+    },
+  },
+  postHandler,
+);
+
+export const DELETE = withWriteGuardrails(
+  {
+    routeId: "auth.session.delete",
+    rateLimit: {
+      maxRequests: 60,
+      windowSeconds: 60,
+    },
+  },
+  deleteHandler,
+);

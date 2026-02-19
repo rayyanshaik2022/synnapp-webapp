@@ -4,6 +4,7 @@ import { SESSION_COOKIE_NAME } from "@/lib/auth/session";
 import { adminAuth, adminDb } from "@/lib/firebase/admin";
 import { resolveWorkspaceBySlug } from "@/lib/auth/workspace-data";
 import { parseMeetingDraftPayload } from "@/lib/workspace/meeting-draft";
+import { withWriteGuardrails } from "@/lib/api/write-guardrails";
 
 type RouteContext = {
   params: Promise<{
@@ -60,7 +61,7 @@ async function authenticateSession(request: NextRequest) {
   return adminAuth.verifySessionCookie(sessionCookie, true);
 }
 
-export async function POST(request: NextRequest, context: RouteContext) {
+async function postHandler(request: NextRequest, context: RouteContext) {
   try {
     const decodedSession = await authenticateSession(request);
     const uid = decodedSession.uid;
@@ -207,3 +208,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: message }, { status });
   }
 }
+
+export const POST = withWriteGuardrails(
+  {
+    routeId: "workspace.meetings.create",
+  },
+  postHandler,
+);

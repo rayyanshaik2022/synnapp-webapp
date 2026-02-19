@@ -50,8 +50,8 @@ function formatRoleLabel(role: WorkspaceMemberRole) {
 function buildEmailContent(input: SendInviteEmailInput) {
   const subject =
     input.action === "resent"
-      ? `Reminder: join ${input.workspaceName} on Synn`
-      : `You're invited to join ${input.workspaceName} on Synn`;
+      ? `Reminder: join ${input.workspaceName} on Synnapp`
+      : `You're invited to join ${input.workspaceName} on Synnapp`;
   const expiryLabel = formatDateTimeLabel(input.expiresAtIso);
   const roleLabel = formatRoleLabel(input.role);
   const accountStep = input.targetUserExists
@@ -59,7 +59,7 @@ function buildEmailContent(input: SendInviteEmailInput) {
     : "You don't have an account yet. Create one with this same email, then accept the invite.";
 
   const text = [
-    `${input.invitedByName} invited you to join ${input.workspaceName} on Synn as ${roleLabel}.`,
+    `${input.invitedByName} invited you to join ${input.workspaceName} on Synnapp as ${roleLabel}.`,
     "",
     `Workspace: ${input.workspaceName} (${input.workspaceSlug})`,
     `Invite link: ${input.inviteUrl}`,
@@ -70,7 +70,7 @@ function buildEmailContent(input: SendInviteEmailInput) {
 
   const html = `
     <div style="font-family: Inter, Segoe UI, Arial, sans-serif; max-width: 560px; color: #0f172a;">
-      <h2 style="margin: 0 0 12px;">Join ${input.workspaceName} on Synn</h2>
+      <h2 style="margin: 0 0 12px;">Join ${input.workspaceName} on Synnapp</h2>
       <p style="margin: 0 0 12px;">
         <strong>${input.invitedByName}</strong> invited you as <strong>${roleLabel}</strong>.
       </p>

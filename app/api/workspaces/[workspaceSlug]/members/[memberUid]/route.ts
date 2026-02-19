@@ -9,6 +9,7 @@ import {
   isWorkspaceMemberRole,
   type WorkspaceMemberRole,
 } from "@/lib/auth/permissions";
+import { withWriteGuardrails } from "@/lib/api/write-guardrails";
 
 type RouteContext = {
   params: Promise<{
@@ -115,7 +116,7 @@ async function countWorkspaceOwners(
   return ownerSnapshots.size;
 }
 
-export async function PATCH(request: NextRequest, context: RouteContext) {
+async function patchHandler(request: NextRequest, context: RouteContext) {
   try {
     const uid = await authenticateUid(request);
     const { workspaceSlug, memberUid } = await context.params;
@@ -202,7 +203,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   }
 }
 
-export async function DELETE(request: NextRequest, context: RouteContext) {
+async function deleteHandler(request: NextRequest, context: RouteContext) {
   try {
     const uid = await authenticateUid(request);
     const { workspaceSlug, memberUid } = await context.params;
@@ -287,3 +288,17 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: message }, { status });
   }
 }
+
+export const PATCH = withWriteGuardrails(
+  {
+    routeId: "workspace.members.update",
+  },
+  patchHandler,
+);
+
+export const DELETE = withWriteGuardrails(
+  {
+    routeId: "workspace.members.delete",
+  },
+  deleteHandler,
+);

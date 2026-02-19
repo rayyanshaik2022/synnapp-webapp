@@ -8,12 +8,13 @@
     "start": "next start",
     "lint": "eslint",
     "test:permissions": "node --experimental-strip-types --test tests/auth/permissions.test.ts",
-    "test:firestore-rules": "firebase emulators:exec --only firestore --project synn-firestore-rules \"node --test tests/firebase/firestore.rules.test.mjs\"",
+    "test:firestore-rules": "firebase emulators:exec --only firestore --project synnapp-firestore-rules \"node --test tests/firebase/firestore.rules.test.mjs\"",
     "firebase:emulators": "firebase emulators:start --only auth,firestore",
-    "test:e2e": "firebase emulators:exec --only auth,firestore --project synn-e2e \"playwright test\"",
-    "test:e2e:headed": "firebase emulators:exec --only auth,firestore --project synn-e2e \"playwright test --headed\"",
-    "test:e2e:ui": "firebase emulators:exec --only auth,firestore --project synn-e2e \"playwright test --ui\"",
-    "test:e2e:install": "playwright install chromium"
+    "test:e2e": "firebase emulators:exec --only auth,firestore --project synnapp-e2e \"playwright test\"",
+    "test:e2e:headed": "firebase emulators:exec --only auth,firestore --project synnapp-e2e \"playwright test --headed\"",
+    "test:e2e:ui": "firebase emulators:exec --only auth,firestore --project synnapp-e2e \"playwright test --ui\"",
+    "test:e2e:install": "playwright install chromium",
+    "migrate:workspace-member-profile": "node scripts/migrate-workspace-member-profile.mjs"
   },
   "dependencies": {
     "firebase": "^12.9.0",

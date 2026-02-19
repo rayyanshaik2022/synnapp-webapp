@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Timestamp } from "firebase-admin/firestore";
 import { SESSION_COOKIE_NAME } from "@/lib/auth/session";
 import { adminAuth, adminDb } from "@/lib/firebase/admin";
+import { withWriteGuardrails } from "@/lib/api/write-guardrails";
 
 type NotificationAction = "mark_read" | "mark_all_read";
 type InviteStatus = "pending" | "accepted" | "revoked" | "expired";
@@ -442,7 +443,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function PATCH(request: NextRequest) {
+async function patchHandler(request: NextRequest) {
   try {
     const uid = await authenticateUid(request);
     const actorEmail = await resolveActorEmail(uid);
@@ -530,3 +531,14 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: message }, { status });
   }
 }
+
+export const PATCH = withWriteGuardrails(
+  {
+    routeId: "notifications.update",
+    rateLimit: {
+      maxRequests: 150,
+      windowSeconds: 60,
+    },
+  },
+  patchHandler,
+);

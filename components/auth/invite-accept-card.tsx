@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
-type InviteStatus = "pending" | "accepted" | "revoked" | "expired";
+type InviteStatus = "pending" | "accepted" | "rejected" | "revoked" | "expired";
 type InviteRole = "owner" | "admin" | "member" | "viewer";
 
 type InviteDetailsResponse = {
@@ -24,6 +24,7 @@ type InviteDetailsResponse = {
     createdAt: string;
     updatedAt: string;
     acceptedAt: string;
+    rejectedAt: string;
   };
   actor?: {
     uid: string;
@@ -35,12 +36,13 @@ type InviteDetailsResponse = {
   reason?: string;
 };
 
-type AcceptInviteResponse = {
+type InviteMutationResponse = {
   error?: string;
   workspaceSlug?: string;
   workspaceName?: string;
   role?: InviteRole;
   alreadyMember?: boolean;
+  status?: InviteStatus;
 };
 
 type InviteAcceptCardProps = {
@@ -76,6 +78,7 @@ function formatDateLabel(value: string) {
 function statusStyle(status: InviteStatus) {
   if (status === "pending") return "border-cyan-200 bg-cyan-50 text-cyan-800";
   if (status === "accepted") return "border-emerald-200 bg-emerald-50 text-emerald-800";
+  if (status === "rejected") return "border-rose-200 bg-rose-50 text-rose-800";
   if (status === "revoked") return "border-slate-200 bg-slate-100 text-slate-700";
   return "border-amber-200 bg-amber-50 text-amber-800";
 }
@@ -145,7 +148,7 @@ export function InviteAcceptCard({ token }: InviteAcceptCardProps) {
       const response = await fetch(`/api/invites/${encodeURIComponent(token)}`, {
         method: "POST",
       });
-      const result = (await response.json().catch(() => null)) as AcceptInviteResponse | null;
+      const result = (await response.json().catch(() => null)) as InviteMutationResponse | null;
 
       if (!response.ok) {
         throw new Error(result?.error ?? "Failed to accept invite.");
@@ -172,6 +175,38 @@ export function InviteAcceptCard({ token }: InviteAcceptCardProps) {
     }
   }
 
+  async function handleRejectInvite() {
+    if (!details?.canAccept) return;
+
+    setIsAccepting(true);
+    setError(null);
+    setNotice(null);
+
+    try {
+      const response = await fetch(`/api/invites/${encodeURIComponent(token)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reject" }),
+      });
+      const result = (await response.json().catch(() => null)) as InviteMutationResponse | null;
+
+      if (!response.ok) {
+        throw new Error(result?.error ?? "Failed to reject invite.");
+      }
+
+      setAcceptedWorkspaceSlug("");
+      setNotice("Invite rejected.");
+      await loadInviteDetails();
+      router.refresh();
+    } catch (rejectError) {
+      const message =
+        rejectError instanceof Error ? rejectError.message : "Failed to reject invite.";
+      setError(message);
+    } finally {
+      setIsAccepting(false);
+    }
+  }
+
   const workspaceSlug =
     normalizeText(acceptedWorkspaceSlug) ||
     normalizeText(details?.invite?.workspaceSlug);
@@ -179,6 +214,7 @@ export function InviteAcceptCard({ token }: InviteAcceptCardProps) {
   const switchAccountPath = `/login?redirect=${encodeURIComponent(`/invite/${token}`)}`;
   const inviteStatus = details?.invite?.status ?? "pending";
   const canAccept = details?.canAccept === true;
+  const canReject = canAccept;
   const secondaryMessage = useMemo(() => {
     if (!details?.reason) return "";
     return details.reason;
@@ -280,13 +316,19 @@ export function InviteAcceptCard({ token }: InviteAcceptCardProps) {
         </p>
       ) : null}
 
+      {inviteStatus === "rejected" ? (
+        <p className="mt-4 rounded-sm border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          This invite was rejected{details.invite.rejectedAt ? ` on ${formatDateLabel(details.invite.rejectedAt)}.` : "."}
+        </p>
+      ) : null}
+
       {error ? (
         <p className="mt-4 rounded-sm border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
           {error}
         </p>
       ) : null}
 
-      {!error && secondaryMessage ? (
+      {!error && !notice && secondaryMessage ? (
         <p className="mt-4 rounded-sm border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
           {secondaryMessage}
         </p>
@@ -307,6 +349,17 @@ export function InviteAcceptCard({ token }: InviteAcceptCardProps) {
             className="rounded-sm bg-[color:var(--accent)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[color:var(--accent-strong)] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isAccepting ? "Accepting..." : "Accept Invite"}
+          </button>
+        ) : null}
+
+        {canReject ? (
+          <button
+            type="button"
+            onClick={() => void handleRejectInvite()}
+            disabled={isAccepting}
+            className="rounded-sm border border-rose-300 bg-white px-4 py-2 text-sm font-semibold text-rose-700 transition hover:border-rose-500 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isAccepting ? "Working..." : "Reject Invite"}
           </button>
         ) : null}
 

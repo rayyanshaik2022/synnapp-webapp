@@ -28,3 +28,9 @@ body {
   outline-offset: 2px;
   box-shadow: 0 0 0 4px rgba(10, 126, 164, 0.14);
 }
+
+.workspace-search-input:focus-visible {
+  outline: none;
+  outline-offset: 0;
+  box-shadow: none;
+}

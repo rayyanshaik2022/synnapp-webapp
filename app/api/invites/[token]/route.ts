@@ -3,6 +3,11 @@ import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { SESSION_COOKIE_NAME } from "@/lib/auth/session";
 import { adminAuth, adminDb } from "@/lib/firebase/admin";
 import { parseWorkspaceMemberRole } from "@/lib/auth/permissions";
+import { withWriteGuardrails } from "@/lib/api/write-guardrails";
+import {
+  MAX_WORKSPACE_MEMBERSHIPS,
+  parseWorkspaceSlugs,
+} from "@/lib/workspace/limits";
 
 type RouteContext = {
   params: Promise<{
@@ -10,7 +15,7 @@ type RouteContext = {
   }>;
 };
 
-type InviteStatus = "pending" | "accepted" | "revoked" | "expired";
+type InviteStatus = "pending" | "accepted" | "rejected" | "revoked" | "expired";
 
 function normalizeText(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
@@ -40,7 +45,12 @@ function parseDate(value: unknown) {
 }
 
 function formatInviteStatus(rawStatus: string, expiresAt: Date | null): InviteStatus {
-  if (rawStatus === "accepted" || rawStatus === "revoked" || rawStatus === "expired") {
+  if (
+    rawStatus === "accepted" ||
+    rawStatus === "rejected" ||
+    rawStatus === "revoked" ||
+    rawStatus === "expired"
+  ) {
     return rawStatus;
   }
 
@@ -91,6 +101,14 @@ async function markInviteAsExpired(
   await batch.commit();
 }
 
+function parseInviteAction(value: unknown): "reject" | "" {
+  const normalized = normalizeText(value).toLowerCase();
+  if (normalized === "reject") {
+    return normalized;
+  }
+  return "";
+}
+
 export async function GET(request: NextRequest, context: RouteContext) {
   try {
     const uid = await authenticateUid(request);
@@ -101,9 +119,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: "Invite token is required." }, { status: 400 });
     }
 
-    const [userRecord, tokenSnapshot] = await Promise.all([
+    const userRef = adminDb.collection("users").doc(uid);
+    const [userRecord, tokenSnapshot, userSnapshot] = await Promise.all([
       adminAuth.getUser(uid),
       adminDb.collection("workspaceInviteTokens").doc(normalizedToken).get(),
+      userRef.get(),
     ]);
 
     if (!tokenSnapshot.exists) {
@@ -153,6 +173,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const expiresAt = parseDate(inviteData.expiresAt) ?? parseDate(tokenData.expiresAt);
     const rawStatus = normalizeText(inviteData.status || tokenData.status).toLowerCase();
     const status = formatInviteStatus(rawStatus, expiresAt);
+    const userWorkspaceSlugs = parseWorkspaceSlugs(userSnapshot.get("workspaceSlugs"));
 
     if (status === "expired" && rawStatus !== "expired") {
       await markInviteAsExpired(tokenSnapshot.ref, inviteRef);
@@ -161,18 +182,28 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const alreadyMember = memberSnapshot.exists;
     const emailMismatch = Boolean(inviteEmail) && Boolean(actorEmail) && actorEmail !== inviteEmail;
     const missingEmail = !actorEmail;
+    const atMembershipLimit =
+      !alreadyMember &&
+      !userWorkspaceSlugs.includes(workspaceSlug) &&
+      userWorkspaceSlugs.length >= MAX_WORKSPACE_MEMBERSHIPS;
     const canAccept =
-      status === "pending" && !alreadyMember && !emailMismatch && !missingEmail;
+      status === "pending" &&
+      !alreadyMember &&
+      !emailMismatch &&
+      !missingEmail &&
+      !atMembershipLimit;
 
     let reason = "";
-    if (status !== "pending") {
-      reason = "Invite is no longer active.";
-    } else if (alreadyMember) {
+    if (alreadyMember) {
       reason = "You are already a member of this workspace.";
+    } else if (status === "rejected") {
+      reason = "This invite has been rejected.";
     } else if (emailMismatch) {
       reason = `This invite is for ${inviteEmail}, but you are signed in as ${actorEmail}.`;
     } else if (missingEmail) {
       reason = "Your account does not have a verified email address.";
+    } else if (atMembershipLimit) {
+      reason = `You can be a member of up to ${MAX_WORKSPACE_MEMBERSHIPS} workspaces.`;
     }
 
     return NextResponse.json({
@@ -192,6 +223,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         createdAt: parseDate(inviteData.createdAt)?.toISOString() ?? "",
         updatedAt: parseDate(inviteData.updatedAt)?.toISOString() ?? "",
         acceptedAt: parseDate(inviteData.acceptedAt)?.toISOString() ?? "",
+        rejectedAt: parseDate(inviteData.rejectedAt)?.toISOString() ?? "",
       },
       actor: {
         uid,
@@ -209,7 +241,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   }
 }
 
-export async function POST(request: NextRequest, context: RouteContext) {
+async function postHandler(request: NextRequest, context: RouteContext) {
   try {
     const uid = await authenticateUid(request);
     const { token } = await context.params;
@@ -316,6 +348,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
       resolvedWorkspaceName = workspaceName;
       resolvedRole = role;
       alreadyMember = memberSnapshot.exists;
+      const userWorkspaceSlugs = parseWorkspaceSlugs(userSnapshot.get("workspaceSlugs"));
+      const isNewMembership =
+        !memberSnapshot.exists && !userWorkspaceSlugs.includes(workspaceSlug);
+
+      if (isNewMembership && userWorkspaceSlugs.length >= MAX_WORKSPACE_MEMBERSHIPS) {
+        throw new Error("WORKSPACE_MEMBERSHIP_LIMIT_REACHED");
+      }
 
       const now = Timestamp.now();
       if (!memberSnapshot.exists) {
@@ -358,6 +397,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
           acceptedAt: now,
           acceptedByUid: uid,
           acceptedByEmail: actorEmail,
+          rejectedAt: null,
+          rejectedByUid: "",
+          rejectedByEmail: "",
           updatedAt: now,
         },
         { merge: true },
@@ -371,6 +413,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
           acceptedAt: now,
           acceptedByUid: uid,
           acceptedByEmail: actorEmail,
+          rejectedAt: null,
+          rejectedByUid: "",
+          rejectedByEmail: "",
           updatedAt: now,
         },
         { merge: true },
@@ -408,8 +453,215 @@ export async function POST(request: NextRequest, context: RouteContext) {
         { status: 403 },
       );
     }
+    if (message === "WORKSPACE_MEMBERSHIP_LIMIT_REACHED") {
+      return NextResponse.json(
+        { error: `You can be a member of up to ${MAX_WORKSPACE_MEMBERSHIPS} workspaces.` },
+        { status: 403 },
+      );
+    }
 
     const status = message === "UNAUTHORIZED" ? 401 : 500;
     return NextResponse.json({ error: message }, { status });
   }
 }
+
+async function patchHandler(request: NextRequest, context: RouteContext) {
+  try {
+    const uid = await authenticateUid(request);
+    const { token } = await context.params;
+    const normalizedToken = normalizeText(token);
+
+    if (!normalizedToken) {
+      return NextResponse.json({ error: "Invite token is required." }, { status: 400 });
+    }
+
+    const body = (await request.json()) as { action?: string };
+    const action = parseInviteAction(body.action);
+    if (!action) {
+      return NextResponse.json({ error: "Valid invite action is required." }, { status: 400 });
+    }
+
+    const userRecord = await adminAuth.getUser(uid);
+    const actorEmail = normalizeEmail(userRecord.email);
+    if (!actorEmail) {
+      return NextResponse.json(
+        { error: "Account email is required to reject an invite." },
+        { status: 400 },
+      );
+    }
+
+    const tokenRef = adminDb.collection("workspaceInviteTokens").doc(normalizedToken);
+    let resolvedWorkspaceSlug = "";
+    let resolvedWorkspaceName = "";
+
+    await adminDb.runTransaction(async (transaction) => {
+      const tokenSnapshot = await transaction.get(tokenRef);
+      if (!tokenSnapshot.exists) {
+        throw new Error("INVITE_NOT_FOUND");
+      }
+
+      const tokenData = tokenSnapshot.data() as Record<string, unknown>;
+      const workspaceId = normalizeText(tokenData.workspaceId);
+      const inviteId = normalizeText(tokenData.inviteId);
+      if (!workspaceId || !inviteId) {
+        throw new Error("INVITE_INVALID");
+      }
+
+      const workspaceRef = adminDb.collection("workspaces").doc(workspaceId);
+      const inviteRef = workspaceRef.collection("invites").doc(inviteId);
+      const memberRef = workspaceRef.collection("members").doc(uid);
+
+      const [workspaceSnapshot, inviteSnapshot, memberSnapshot] = await Promise.all([
+        transaction.get(workspaceRef),
+        transaction.get(inviteRef),
+        transaction.get(memberRef),
+      ]);
+
+      if (!workspaceSnapshot.exists || !inviteSnapshot.exists) {
+        throw new Error("INVITE_NOT_FOUND");
+      }
+
+      const workspaceData = workspaceSnapshot.data() as Record<string, unknown>;
+      const inviteData = inviteSnapshot.data() as Record<string, unknown>;
+      const workspaceSlug =
+        normalizeText(workspaceData.slug) || normalizeText(tokenData.workspaceSlug);
+      const workspaceName =
+        normalizeText(workspaceData.name) ||
+        normalizeText(tokenData.workspaceName) ||
+        workspaceSlug ||
+        "Workspace";
+      if (!workspaceSlug) {
+        throw new Error("INVITE_INVALID");
+      }
+
+      const inviteEmail = normalizeEmail(inviteData.email) || normalizeEmail(tokenData.email);
+      const expiresAt = parseDate(inviteData.expiresAt) ?? parseDate(tokenData.expiresAt);
+      const rawStatus = normalizeText(inviteData.status || tokenData.status).toLowerCase();
+      const status = formatInviteStatus(rawStatus, expiresAt);
+
+      if (status === "expired") {
+        const now = Timestamp.now();
+        transaction.set(
+          inviteRef,
+          {
+            status: "expired",
+            updatedAt: now,
+          },
+          { merge: true },
+        );
+        transaction.set(
+          tokenRef,
+          {
+            status: "expired",
+            updatedAt: now,
+          },
+          { merge: true },
+        );
+        throw new Error("INVITE_EXPIRED");
+      }
+
+      if (status !== "pending") {
+        throw new Error("INVITE_NOT_ACTIVE");
+      }
+
+      if (memberSnapshot.exists) {
+        throw new Error("INVITE_ALREADY_MEMBER");
+      }
+
+      if (inviteEmail && inviteEmail !== actorEmail) {
+        throw new Error("INVITE_EMAIL_MISMATCH");
+      }
+
+      const now = Timestamp.now();
+      transaction.set(
+        inviteRef,
+        {
+          status: "rejected",
+          targetUserExists: true,
+          rejectedAt: now,
+          rejectedByUid: uid,
+          rejectedByEmail: actorEmail,
+          updatedAt: now,
+        },
+        { merge: true },
+      );
+      transaction.set(
+        tokenRef,
+        {
+          status: "rejected",
+          targetUserExists: true,
+          rejectedAt: now,
+          rejectedByUid: uid,
+          rejectedByEmail: actorEmail,
+          updatedAt: now,
+        },
+        { merge: true },
+      );
+
+      resolvedWorkspaceSlug = workspaceSlug;
+      resolvedWorkspaceName = workspaceName;
+    });
+
+    return NextResponse.json({
+      ok: true,
+      status: "rejected",
+      workspaceSlug: resolvedWorkspaceSlug,
+      workspaceName: resolvedWorkspaceName,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to reject invite.";
+
+    if (message === "INVITE_NOT_FOUND") {
+      return NextResponse.json({ error: "Invite not found." }, { status: 404 });
+    }
+    if (message === "INVITE_INVALID") {
+      return NextResponse.json(
+        { error: "Invite is invalid. Ask for a new invite link." },
+        { status: 400 },
+      );
+    }
+    if (message === "INVITE_EXPIRED") {
+      return NextResponse.json({ error: "Invite has expired." }, { status: 410 });
+    }
+    if (message === "INVITE_NOT_ACTIVE") {
+      return NextResponse.json({ error: "Invite is no longer active." }, { status: 409 });
+    }
+    if (message === "INVITE_ALREADY_MEMBER") {
+      return NextResponse.json(
+        { error: "You are already a member of this workspace." },
+        { status: 409 },
+      );
+    }
+    if (message === "INVITE_EMAIL_MISMATCH") {
+      return NextResponse.json(
+        { error: "This invite belongs to a different email address." },
+        { status: 403 },
+      );
+    }
+
+    const status = message === "UNAUTHORIZED" ? 401 : 500;
+    return NextResponse.json({ error: message }, { status });
+  }
+}
+
+export const PATCH = withWriteGuardrails(
+  {
+    routeId: "invites.respond",
+    rateLimit: {
+      maxRequests: 30,
+      windowSeconds: 60,
+    },
+  },
+  patchHandler,
+);
+
+export const POST = withWriteGuardrails(
+  {
+    routeId: "invites.accept",
+    rateLimit: {
+      maxRequests: 30,
+      windowSeconds: 60,
+    },
+  },
+  postHandler,
+);

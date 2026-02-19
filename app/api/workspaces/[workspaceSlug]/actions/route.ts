@@ -10,6 +10,7 @@ import {
   normalizeMentionUids,
   resolveWorkspaceMentionUids,
 } from "@/lib/notifications/mentions";
+import { withWriteGuardrails } from "@/lib/api/write-guardrails";
 
 type RouteContext = {
   params: Promise<{
@@ -131,7 +132,7 @@ async function authenticateUid(request: NextRequest) {
   return decodedSession.uid;
 }
 
-export async function POST(request: NextRequest, context: RouteContext) {
+async function postHandler(request: NextRequest, context: RouteContext) {
   try {
     const uid = await authenticateUid(request);
     const { workspaceSlug } = await context.params;
@@ -282,3 +283,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: message }, { status });
   }
 }
+
+export const POST = withWriteGuardrails(
+  {
+    routeId: "workspace.actions.create",
+  },
+  postHandler,
+);
