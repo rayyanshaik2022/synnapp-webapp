@@ -53,6 +53,7 @@ export async function loginWithEmail(page: Page, email: string, password: string
 }
 
 export async function signOutFromWorkspace(page: Page) {
+  await page.getByRole("button", { name: /User menu/i }).click();
   await page.getByRole("button", { name: /^Sign out$/ }).click();
   await page.waitForURL(/\/login(?:\?|$)/);
   await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();

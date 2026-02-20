@@ -103,6 +103,6 @@ test("invite reject flow is reflected in workspace invite manager", async ({ pag
   await page.goto(`/${workspaceSlug}/settings`);
   const inviteRow = page.locator("article").filter({ hasText: invitedEmail }).first();
   await expect(inviteRow).toBeVisible();
-  await expect(inviteRow.getByText("REJECTED")).toBeVisible();
+  await expect(inviteRow.getByText("REJECTED", { exact: true })).toBeVisible();
   await expect(inviteRow.getByText(/Rejected by/i)).toBeVisible();
 });

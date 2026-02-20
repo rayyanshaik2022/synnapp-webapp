@@ -389,6 +389,7 @@ export function WorkspaceSwitcher({
                 disabled={isSubmitting || isCreatingWorkspace}
                 aria-expanded={isWorkspaceMenuOpen}
                 aria-haspopup="menu"
+                aria-label="Workspace menu"
                 className="inline-flex h-10 w-full items-center justify-between gap-2 rounded-lg border border-slate-300 bg-white px-3 text-left transition hover:border-slate-500 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <span className="truncate text-sm font-semibold text-slate-900">
@@ -559,6 +560,7 @@ export function WorkspaceSwitcher({
               onClick={() => setIsUserMenuOpen((current) => !current)}
               aria-expanded={isUserMenuOpen}
               aria-haspopup="menu"
+              aria-label="User menu"
               className="inline-flex h-10 max-w-[280px] items-center gap-2 rounded-lg border border-slate-300 bg-white px-2.5 transition hover:border-slate-500"
             >
               <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-slate-300 bg-white text-[10px] font-semibold text-slate-700">

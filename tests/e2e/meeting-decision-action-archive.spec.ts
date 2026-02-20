@@ -49,8 +49,16 @@ test("meeting -> canonical decision/action sync + archive/restore", async ({ pag
   const actionInput = page.getByPlaceholder("Action title");
   await actionInput.fill(actionTitle);
   await page.getByPlaceholder("Due label").first().fill("Friday");
+  const syncResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === "PATCH" &&
+      response.status() === 200 &&
+      response.url().includes(`/api/workspaces/${workspaceSlug}/meetings/`),
+    { timeout: 20_000 },
+  );
   await page.getByRole("button", { name: "Add action" }).click();
   await expect(page.getByText(/Added action A-/)).toBeVisible();
+  await syncResponse;
 
   await expect(page.getByText(/Saved at/)).toBeVisible({ timeout: 15_000 });
 

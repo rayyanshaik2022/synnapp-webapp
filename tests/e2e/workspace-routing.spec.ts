@@ -36,21 +36,27 @@ test("workspace switching + access-denied/not-found routes", async ({ page }) =>
   });
 
   await page.goto(`/${primarySlug}/my-work`);
-  const workspaceSelect = page.locator("select").first();
-  await expect(workspaceSelect).toBeVisible();
+  const workspaceMenu = page.getByRole("button", { name: /Workspace menu/i });
+  await expect(workspaceMenu).toBeVisible();
 
   await expect
-    .poll(async () => {
-      return workspaceSelect.evaluate((element, targetValue) => {
-        const select = element as HTMLSelectElement;
-        return Array.from(select.options).some(
-          (option) => option.value === targetValue,
-        );
-      }, secondarySlug);
-    })
+    .poll(
+      async () => {
+        await workspaceMenu.click();
+        const optionVisible = await page
+          .getByRole("button", { name: /Secondary Workspace/ })
+          .first()
+          .isVisible()
+          .catch(() => false);
+        await page.keyboard.press("Escape");
+        return optionVisible;
+      },
+      { timeout: 20_000 },
+    )
     .toBe(true);
 
-  await workspaceSelect.selectOption(secondarySlug);
+  await workspaceMenu.click();
+  await page.getByRole("button", { name: /Secondary Workspace/ }).first().click();
   await page.waitForURL(new RegExp(`/${secondarySlug}/my-work(?:\\?|$)`));
   await expect(page.getByRole("heading", { name: "My Work" })).toBeVisible();
 
