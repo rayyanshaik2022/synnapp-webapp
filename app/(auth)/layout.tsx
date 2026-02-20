@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 
 export default function AuthLayout({
@@ -10,7 +11,16 @@ export default function AuthLayout({
       <div className="mx-auto flex min-h-[calc(100vh-3rem)] w-full max-w-5xl items-center">
         <section className="grid w-full overflow-hidden rounded-2xl border border-slate-300/70 bg-[color:var(--surface)] shadow-[0_24px_52px_rgba(15,23,42,0.16)] lg:grid-cols-[1.06fr_0.94fr]">
           <aside className="hidden border-r border-slate-700 bg-[linear-gradient(165deg,#0f172a_0%,#1e293b_100%)] p-10 lg:flex lg:flex-col">
-            <p className="text-xs font-semibold tracking-[0.2em] text-slate-300">SYNNAPP OPERATIONS</p>
+            <div className="inline-flex w-fit items-center rounded-md border border-slate-500/60 bg-white/95 px-3 py-2">
+              <Image
+                src="/brand/logo.svg"
+                alt="Synnapp"
+                width={156}
+                height={32}
+                className="h-6 w-auto"
+                priority
+              />
+            </div>
             <h2 className="mt-8 max-w-xl text-5xl font-semibold leading-[1.06] tracking-tight text-white">
               Decision systems that stay clear under pressure.
             </h2>
@@ -40,7 +50,16 @@ export default function AuthLayout({
 
           <div className="p-5 sm:p-8 lg:p-10">
             <div className="mb-8 border-b border-slate-200 pb-4 lg:hidden">
-              <p className="text-xs font-semibold tracking-[0.2em] text-slate-600">SYNNAPP OPERATIONS</p>
+              <div className="inline-flex items-center rounded-md border border-slate-300 bg-white px-3 py-2">
+                <Image
+                  src="/brand/logo.svg"
+                  alt="Synnapp"
+                  width={156}
+                  height={32}
+                  className="h-6 w-auto"
+                  priority
+                />
+              </div>
               <h2 className="mt-2 text-3xl font-semibold tracking-tight text-slate-900">Workspace access</h2>
               <p className="mt-2 text-sm text-slate-600">Firebase authentication is active.</p>
             </div>

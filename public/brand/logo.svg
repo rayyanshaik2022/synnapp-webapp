@@ -1,0 +1,15 @@
+<svg width="200" height="200" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <!-- Synnapp: Simplified S-Monogram Icon (No Text) -->
+  <!-- Concept: One clear path from input to outcome -->
+  
+  <!-- Main structural path (Simplified S) -->
+  <path d="M30 25 H70 V50 H30 V75 H70" 
+        fill="none" 
+        stroke="#14213D" 
+        stroke-width="12" 
+        stroke-linecap="round" 
+        stroke-linejoin="round" />
+        
+  <!-- Accent node representing the clear outcome/decision -->
+  <circle cx="70" cy="75" r="6" fill="#00F5D4" />
+</svg>

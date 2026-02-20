@@ -196,6 +196,9 @@ export function AuthForm({ mode }: AuthFormProps) {
   const googleActionLabel = isSignUp ? "Sign up with Google" : "Continue with Google";
   const googleSubmitLabel =
     state.submittingMethod === "google" ? "Opening..." : googleActionLabel;
+  const showLiveAuthNotice =
+    process.env.NODE_ENV !== "production" &&
+    process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS !== "1";
 
   function setValidationError(error: string) {
     setState({
@@ -518,9 +521,11 @@ export function AuthForm({ mode }: AuthFormProps) {
           </p>
         ) : null}
 
-        <p className="rounded-sm border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-          Live Firebase auth is enabled. Ensure your domain is authorized in Firebase Auth settings.
-        </p>
+        {showLiveAuthNotice ? (
+          <p className="rounded-sm border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            Live Firebase auth is enabled. Ensure your domain is authorized in Firebase Auth settings.
+          </p>
+        ) : null}
 
         <button
           type="submit"

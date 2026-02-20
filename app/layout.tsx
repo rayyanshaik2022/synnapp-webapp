@@ -15,6 +15,11 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Synnapp",
   description: "Decision and action system for teams",
+  icons: {
+    icon: [{ url: "/brand/favicon.svg", type: "image/svg+xml" }],
+    shortcut: "/brand/favicon.svg",
+    apple: "/brand/favicon.svg",
+  },
 };
 
 export default function RootLayout({

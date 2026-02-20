@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { WorkspaceNav } from "@/components/workspace/workspace-nav";
 import { WorkspaceSwitcher } from "@/components/workspace/workspace-switcher";
 import { requireWorkspaceAccess } from "@/lib/auth/workspace-access";
@@ -45,9 +46,16 @@ export default async function WorkspaceLayout({
           <aside className="hidden w-64 shrink-0 lg:block">
             <div className="sticky top-4 space-y-4">
               <section className="rounded-2xl border border-slate-700 bg-[linear-gradient(165deg,#0f172a_0%,#1e293b_100%)] px-5 py-6 text-white shadow-[0_18px_36px_rgba(15,23,42,0.25)]">
-                <p className="text-xs font-semibold tracking-[0.2em] text-slate-300">
-                  SYNNAPP OPERATIONS
-                </p>
+                <div className="inline-flex items-center rounded-md border border-slate-500/60 bg-white/95 px-3 py-2">
+                  <Image
+                    src="/brand/logo.svg"
+                    alt="Synnapp"
+                    width={156}
+                    height={32}
+                    className="h-6 w-auto"
+                    priority
+                  />
+                </div>
                 <h1 className="mt-3 text-lg font-semibold tracking-tight">{workspaceName}</h1>
                 <p className="mt-1 text-xs text-slate-300">
                   Access level: {access.membershipRoleLabel}
