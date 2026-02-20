@@ -15,5 +15,21 @@
       "port": 4000
     },
     "singleProjectMode": true
-  }
+  },
+  "apphosting": [
+    {
+      "backendId": "synnapp-webapp-host",
+      "rootDir": ".",
+      "ignore": [
+        "node_modules",
+        ".git",
+        ".next",
+        "firebase-debug.log",
+        "firestore-debug.log",
+        "playwright-report",
+        "test-results",
+        ".npm-cache"
+      ]
+    }
+  ]
 }

@@ -1,0 +1,8 @@
+{
+  "projects": {
+    "synnapp-prod": "synnapp-a8895",
+    "default": "synnapp-a8895"
+  },
+  "targets": {},
+  "etags": {}
+}

@@ -10,6 +10,7 @@ type AdminConfig = {
   privateKey: string | null;
   storageBucket?: string;
   emulatorMode: boolean;
+  hasServiceAccountCredential: boolean;
 };
 
 function getAdminConfig(): AdminConfig {
@@ -24,12 +25,13 @@ function getAdminConfig(): AdminConfig {
   const emulatorMode =
     Boolean(process.env.FIRESTORE_EMULATOR_HOST) ||
     Boolean(process.env.FIREBASE_AUTH_EMULATOR_HOST);
+  const hasServiceAccountCredential = Boolean(clientEmail && privateKey);
 
   const missing: string[] = [];
 
   if (!projectId) missing.push("FIREBASE_PROJECT_ID");
-  if (!emulatorMode && !clientEmail) missing.push("FIREBASE_CLIENT_EMAIL");
-  if (!emulatorMode && !privateKey) missing.push("FIREBASE_PRIVATE_KEY");
+  if (!emulatorMode && clientEmail && !privateKey) missing.push("FIREBASE_PRIVATE_KEY");
+  if (!emulatorMode && privateKey && !clientEmail) missing.push("FIREBASE_CLIENT_EMAIL");
 
   if (missing.length > 0) {
     throw new Error(
@@ -43,6 +45,7 @@ function getAdminConfig(): AdminConfig {
     privateKey,
     storageBucket,
     emulatorMode,
+    hasServiceAccountCredential,
   };
 }
 
@@ -60,12 +63,21 @@ export function getFirebaseAdminApp(): App {
     });
   }
 
-  return initializeApp({
-    credential: cert({
+  if (config.hasServiceAccountCredential) {
+    return initializeApp({
+      credential: cert({
+        projectId: config.projectId,
+        clientEmail: config.clientEmail!,
+        privateKey: config.privateKey!,
+      }),
       projectId: config.projectId,
-      clientEmail: config.clientEmail!,
-      privateKey: config.privateKey!,
-    }),
+      storageBucket: config.storageBucket,
+    });
+  }
+
+  // On Firebase App Hosting / Cloud Run, initialize without explicit credentials
+  // to use the runtime service account via Application Default Credentials (ADC).
+  return initializeApp({
     projectId: config.projectId,
     storageBucket: config.storageBucket,
   });
